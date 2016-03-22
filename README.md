@@ -1,7 +1,21 @@
 # spawn-rx: A better version of spawn
 
-`spawn-rx` is a package that fixes some deficiencies in `spawn` that come up 
-especially on Windows.
+`spawn-rx` is a package that adds an Observable as well as a Promise version of 
+the `child_process.spawn` API, and fixes some deficiencies in `spawn` that come 
+up especially on Windows. For example:
+
+* `spawn` searches PATH on POSIX platforms but will not on Windows, you need to
+  provide an exact path. spawn-rx makes Windows act like other platforms.
+  
+* On Windows, `{detached: true}` doesn't actually create a process group properly.
+  `spawn-rx` provides a `spawnDetached` method that allows you to spawn a detached
+  process and kill the entire process group if needed.
+  
+* POSIX platforms allow you to directly execute scripts that have a shebang at 
+  the top of the file, whereas Windows can only natively `spawn` EXE files, which
+  makes executing npm binaries annoying. `spawn-rx` automatically rewrites your
+  `cmd` and `args` parameters for CMD scripts, PowerShell scripts, and node.js
+  files.
 
 ## Examples
 
@@ -42,6 +56,12 @@ spawn('ls', ['-r'])
     (x) => console.log(x), 
     (e) => console.log("Process exited with an error"));
 ```
+
+## What's Jobber?
+
+Jobber is a Windows executable that will execute a command in a process group,
+and if signaled via a named pipe, will terminate that process group. It's used
+in the implementation of `spawnDetached`.
 
 ## Methods
 
