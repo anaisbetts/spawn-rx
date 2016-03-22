@@ -61,14 +61,14 @@ function runDownPath(exe) {
 }
 
 /**
- * Finds the actual executable and parameters to run on Windows. This method 
- * mimics the POSIX behavior of being able to run scripts as executables by 
- * replacing the passed-in executable with the script runner, for PowerShell, 
+ * Finds the actual executable and parameters to run on Windows. This method
+ * mimics the POSIX behavior of being able to run scripts as executables by
+ * replacing the passed-in executable with the script runner, for PowerShell,
  * CMD, and node scripts.
  *
  * This method also does the work of running down PATH, which spawn on Windows
  * also doesn't do, unlike on POSIX.
- * 
+ *
  * @param  {string} exe           The executable to run
  * @param  {Array<string>} args   The arguments to run
  *
@@ -79,7 +79,7 @@ function runDownPath(exe) {
 export function findActualExecutable(exe, args) {
   // POSIX can just execute scripts directly, no need for silly goosery
   if (process.platform !== 'win32') return { cmd: exe, args: args };
-  
+
   if (!sfs.existsSync(exe)) {
     // NB: When you write something like `surf-client ... -- surf-build` on Windows,
     // a shell would normally convert that to surf-build.cmd, but since it's passed
@@ -93,7 +93,7 @@ export function findActualExecutable(exe, args) {
       }
     }
   }
-  
+
   if (exe.match(/\.ps1$/i)) {
     let cmd = path.join(process.env.SYSTEMROOT, 'System32', 'WindowsPowerShell', 'v1.0', 'PowerShell.exe');
     let psargs = ['-ExecutionPolicy', 'Unrestricted', '-NoLogo', '-NonInteractive', '-File', exe];
@@ -120,10 +120,10 @@ export function findActualExecutable(exe, args) {
 }
 
 /**
- * Spawns a process but detached from the current process. The process is put 
- * into its own Process Group that can be killed by unsubscribing from the 
+ * Spawns a process but detached from the current process. The process is put
+ * into its own Process Group that can be killed by unsubscribing from the
  * return Observable.
- * 
+ *
  * @param  {string} exe               The executable to run
  * @param  {Array<string>} params     The parameters to pass to the child
  * @param  {Object} opts              Options to pass to spawn.
@@ -137,9 +137,11 @@ export function findActualExecutable(exe, args) {
  *                                    the Observable will terminate with onError.
  */
 export function spawnDetached(exe, params, opts=null) {
-  if (!isWindows) return spawn(exe, params, _.assign({}, opts || {}, {detached: true }));
-  const newParams = [exe].concat(params);
+  let { cmd, args } = findActualExecutable(exe, params);
 
+  if (!isWindows) return spawn(cmd, args, _.assign({}, opts || {}, {detached: true }));
+  const newParams = [cmd].concat(args);
+  
   let target = path.join(__dirname, '..', 'vendor', 'jobber', 'jobber.exe');
   let options = _.assign({}, opts || {}, { detached: true, jobber: true });
 
@@ -149,8 +151,8 @@ export function spawnDetached(exe, params, opts=null) {
 
 
 /**
- * Spawns a process attached as a child of the current process. 
- * 
+ * Spawns a process attached as a child of the current process.
+ *
  * @param  {string} exe               The executable to run
  * @param  {Array<string>} params     The parameters to pass to the child
  * @param  {Object} opts              Options to pass to spawn.
@@ -175,7 +177,7 @@ export function spawn(exe, params=[], opts=null) {
       d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(opts)}`);
       proc = spawnOg(cmd, args, _.omit(opts, 'jobber'));
     }
-  
+
     let bufHandler = (b) => {
       if (b.length < 1) return;
       let chunk = "<< String sent back was too long >>";
@@ -187,11 +189,11 @@ export function spawn(exe, params=[], opts=null) {
 
       subj.onNext(chunk);
     };
-    
+
     let stderrCompleted = null;
     let stdoutCompleted = null;
     let noClose = false;
-    
+
     if (proc.stdout) {
       stdoutCompleted = new AsyncSubject();
       proc.stdout.on('data', bufHandler);
@@ -199,7 +201,7 @@ export function spawn(exe, params=[], opts=null) {
     } else {
       stdoutCompleted = Observable.just(true);
     }
-    
+
     if (proc.stderr) {
       stderrCompleted = new AsyncSubject();
       proc.stderr.on('data', bufHandler);
@@ -207,7 +209,7 @@ export function spawn(exe, params=[], opts=null) {
     } else {
       stderrCompleted = Observable.just(true);
     }
-    
+
     proc.stderr.on('data', bufHandler);
     proc.on('error', (e) => {
       noClose = true;
@@ -218,7 +220,7 @@ export function spawn(exe, params=[], opts=null) {
       noClose = true;
       let pipesClosed = Observable.merge(stdoutCompleted, stderrCompleted)
         .reduce((acc) => acc, true);
-      
+
       if (code === 0) {
         pipesClosed.subscribe(() => subj.onCompleted());
       } else {
@@ -245,17 +247,17 @@ export function spawn(exe, params=[], opts=null) {
 }
 
 /**
- * Spawns a process but detached from the current process. The process is put 
+ * Spawns a process but detached from the current process. The process is put
  * into its own Process Group.
- * 
+ *
  * @param  {string} exe               The executable to run
  * @param  {Array<string>} params     The parameters to pass to the child
  * @param  {Object} opts              Options to pass to spawn.
  *
- * @return {Promise<string>}       Returns an Promise that represents a detached 
- *                                 process. The value returned is the process 
- *                                 output. If the process terminates with a 
- *                                 non-zero value, the Promise will resolve with 
+ * @return {Promise<string>}       Returns an Promise that represents a detached
+ *                                 process. The value returned is the process
+ *                                 output. If the process terminates with a
+ *                                 non-zero value, the Promise will resolve with
  *                                 an Error.
  */
 export function spawnDetachedPromise(exe, params, opts=null) {
@@ -265,15 +267,15 @@ export function spawnDetachedPromise(exe, params, opts=null) {
 
 /**
  * Spawns a process as a child process.
- * 
+ *
  * @param  {string} exe               The executable to run
  * @param  {Array<string>} params     The parameters to pass to the child
  * @param  {Object} opts              Options to pass to spawn.
  *
  * @return {Promise<string>}       Returns an Promise that represents a child
- *                                 process. The value returned is the process 
- *                                 output. If the process terminates with a 
- *                                 non-zero value, the Promise will resolve with 
+ *                                 process. The value returned is the process
+ *                                 output. If the process terminates with a
+ *                                 non-zero value, the Promise will resolve with
  *                                 an Error.
  */
 export function spawnPromise(exe, params, opts=null) {
