@@ -6,98 +6,18 @@ import sfs from 'fs';
 
 const spawnOg = require('child_process').spawn;
 const isWindows = process.platform === 'win32';
-const fs = require('pify')(sfs);
 
 const d = require('debug')('surf:promise-array');
 
-export function findActualExecutable(fullPath, args) {
-  // POSIX can just execute scripts directly, no need for silly goosery
-  if (process.platform !== 'win32') return { cmd: fullPath, args: args };
-  
-  if (!sfs.existsSync(fullPath)) {
-    // NB: When you write something like `surf-client ... -- surf-build` on Windows,
-    // a shell would normally convert that to surf-build.cmd, but since it's passed
-    // in as an argument, it doesn't happen
-    const possibleExts = ['.exe', '.bat', '.cmd', '.ps1'];
-    for (let ext of possibleExts) {
-      let possibleFullPath = runDownPath(`${fullPath}${ext}`);
-
-      if (sfs.existsSync(possibleFullPath)) {
-        return findActualExecutable(possibleFullPath, args);
-      }
-    }
-  }
-  
-  if (fullPath.match(/\.ps1$/i)) {
-    let cmd = path.join(process.env.SYSTEMROOT, 'System32', 'WindowsPowerShell', 'v1.0', 'PowerShell.exe');
-    let psargs = ['-ExecutionPolicy', 'Unrestricted', '-NoLogo', '-NonInteractive', '-File', fullPath];
-
-    return { cmd: cmd, args: psargs.concat(args) };
-  }
-
-  if (fullPath.match(/\.(bat|cmd)$/i)) {
-    let cmd = path.join(process.env.SYSTEMROOT, 'System32', 'cmd.exe');
-    let cmdArgs = ['/C', fullPath];
-
-    return { cmd: cmd, args: cmdArgs.concat(args) };
-  }
-
-  if (fullPath.match(/\.(js)$/i)) {
-    let cmd = process.execPath;
-    let nodeArgs = [fullPath];
-
-    return { cmd: cmd, args: nodeArgs.concat(args) };
-  }
-
-  // Dunno lol
-  return { cmd: fullPath, args: args };
-}
-
-export function asyncMap(array, selector, maxConcurrency=4) {
-  return Observable.from(array)
-    .map((k) =>
-      Observable.defer(() =>
-        Observable.fromPromise(selector(k))
-          .map((v) => ({ k, v }))))
-    .merge(maxConcurrency)
-    .reduce((acc, kvp) => {
-      acc[kvp.k] = kvp.v;
-      return acc;
-    }, {})
-    .toPromise();
-}
-
-export async function asyncReduce(array, selector, seed) {
-  let acc = seed;
-  for (let x of array) {
-    acc = await selector(acc, x);
-  }
-
-  return acc;
-}
-
-export function delay(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-export function retryPromise(func) {
-  return Observable.defer(() => 
-      Observable.fromPromise(func()))
-    .retry(3)
-    .toPromise();
-}
-
-export async function statNoException(file) {
-  try {
-    return await fs.stat(file);
-  } catch (e) {
-    return null;
-  }
-}
-
-export function statSyncNoException(file) {
+/**
+ * stat a file but don't throw if it doesn't exist
+ *
+ * @param  {string} file The path to a file
+ * @return {Stats}       The stats structure
+ *
+ * @private
+ */
+function statSyncNoException(file) {
   try {
     return sfs.statSync(file);
   } catch (e) {
@@ -105,24 +25,15 @@ export function statSyncNoException(file) {
   }
 }
 
-export async function readdirRecursive(dir) {
-  let acc = [];
-
-  for (let entry of await fs.readdir(dir)) {
-    let target = path.resolve(dir, entry);
-    let stat = await statNoException(target);
-
-    if (stat && stat.isDirectory()) {
-      let entries = await readdirRecursive(target);
-      _.each(entries, (x) => acc.push(x));
-    } else {
-      acc.push(target);
-    }
-  }
-
-  return acc;
-}
-
+/**
+ * Search PATH to see if a file exists in any of the path folders.
+ *
+ * @param  {string} exe The file to search for
+ * @return {string}     A fully qualified path, or the original path if nothing
+ *                      is found
+ *
+ * @private
+ */
 function runDownPath(exe) {
   // NB: Windows won't search PATH looking for executables in spawn like
   // Posix does
@@ -149,6 +60,82 @@ function runDownPath(exe) {
   return exe;
 }
 
+/**
+ * Finds the actual executable and parameters to run on Windows. This method 
+ * mimics the POSIX behavior of being able to run scripts as executables by 
+ * replacing the passed-in executable with the script runner, for PowerShell, 
+ * CMD, and node scripts.
+ *
+ * This method also does the work of running down PATH, which spawn on Windows
+ * also doesn't do, unlike on POSIX.
+ * 
+ * @param  {string} exe           The executable to run
+ * @param  {Array<string>} args   The arguments to run
+ *
+ * @return {Object}               The cmd and args to run
+ * @property {string} cmd         The command to pass to spawn
+ * @property {Array<string>} args The arguments to pass to spawn
+ */
+export function findActualExecutable(exe, args) {
+  // POSIX can just execute scripts directly, no need for silly goosery
+  if (process.platform !== 'win32') return { cmd: exe, args: args };
+  
+  if (!sfs.existsSync(exe)) {
+    // NB: When you write something like `surf-client ... -- surf-build` on Windows,
+    // a shell would normally convert that to surf-build.cmd, but since it's passed
+    // in as an argument, it doesn't happen
+    const possibleExts = ['.exe', '.bat', '.cmd', '.ps1'];
+    for (let ext of possibleExts) {
+      let possibleFullPath = runDownPath(`${exe}${ext}`);
+
+      if (sfs.existsSync(possibleFullPath)) {
+        return findActualExecutable(possibleFullPath, args);
+      }
+    }
+  }
+  
+  if (exe.match(/\.ps1$/i)) {
+    let cmd = path.join(process.env.SYSTEMROOT, 'System32', 'WindowsPowerShell', 'v1.0', 'PowerShell.exe');
+    let psargs = ['-ExecutionPolicy', 'Unrestricted', '-NoLogo', '-NonInteractive', '-File', exe];
+
+    return { cmd: cmd, args: psargs.concat(args) };
+  }
+
+  if (exe.match(/\.(bat|cmd)$/i)) {
+    let cmd = path.join(process.env.SYSTEMROOT, 'System32', 'cmd.exe');
+    let cmdArgs = ['/C', exe];
+
+    return { cmd: cmd, args: cmdArgs.concat(args) };
+  }
+
+  if (exe.match(/\.(js)$/i)) {
+    let cmd = process.execPath;
+    let nodeArgs = [exe];
+
+    return { cmd: cmd, args: nodeArgs.concat(args) };
+  }
+
+  // Dunno lol
+  return { cmd: exe, args: args };
+}
+
+/**
+ * Spawns a process but detached from the current process. The process is put 
+ * into its own Process Group that can be killed by unsubscribing from the 
+ * return Observable.
+ * 
+ * @param  {string} exe               The executable to run
+ * @param  {Array<string>} params     The parameters to pass to the child
+ * @param  {Object} opts              Options to pass to spawn.
+ *
+ * @return {Observable<string>}       Returns an Observable that when subscribed
+ *                                    to, will create a detached process. The
+ *                                    process output will be streamed to this
+ *                                    Observable, and if unsubscribed from, the
+ *                                    process will be terminated early. If the
+ *                                    process terminates with a non-zero value,
+ *                                    the Observable will terminate with onError.
+ */
 export function spawnDetached(exe, params, opts=null) {
   if (!isWindows) return spawn(exe, params, _.assign({}, opts || {}, {detached: true }));
   const newParams = [exe].concat(params);
@@ -160,6 +147,22 @@ export function spawnDetached(exe, params, opts=null) {
   return spawn(target, newParams, options);
 }
 
+
+/**
+ * Spawns a process attached as a child of the current process. 
+ * 
+ * @param  {string} exe               The executable to run
+ * @param  {Array<string>} params     The parameters to pass to the child
+ * @param  {Object} opts              Options to pass to spawn.
+ *
+ * @return {Observable<string>}       Returns an Observable that when subscribed
+ *                                    to, will create a child process. The
+ *                                    process output will be streamed to this
+ *                                    Observable, and if unsubscribed from, the
+ *                                    process will be terminated early. If the
+ *                                    process terminates with a non-zero value,
+ *                                    the Observable will terminate with onError.
+ */
 export function spawn(exe, params=[], opts=null) {
   let spawnObs = Observable.create((subj) => {
     let proc = null;
@@ -241,10 +244,38 @@ export function spawn(exe, params=[], opts=null) {
   return spawnObs.publish().refCount();
 }
 
-export function spawnPromise(exe, params, opts=null) {
-  return spawn(exe, params, opts).toPromise();
-}
-
+/**
+ * Spawns a process but detached from the current process. The process is put 
+ * into its own Process Group.
+ * 
+ * @param  {string} exe               The executable to run
+ * @param  {Array<string>} params     The parameters to pass to the child
+ * @param  {Object} opts              Options to pass to spawn.
+ *
+ * @return {Promise<string>}       Returns an Promise that represents a detached 
+ *                                 process. The value returned is the process 
+ *                                 output. If the process terminates with a 
+ *                                 non-zero value, the Promise will resolve with 
+ *                                 an Error.
+ */
 export function spawnDetachedPromise(exe, params, opts=null) {
   return spawnDetached(exe, params, opts).toPromise();
+}
+
+
+/**
+ * Spawns a process as a child process.
+ * 
+ * @param  {string} exe               The executable to run
+ * @param  {Array<string>} params     The parameters to pass to the child
+ * @param  {Object} opts              Options to pass to spawn.
+ *
+ * @return {Promise<string>}       Returns an Promise that represents a child
+ *                                 process. The value returned is the process 
+ *                                 output. If the process terminates with a 
+ *                                 non-zero value, the Promise will resolve with 
+ *                                 an Error.
+ */
+export function spawnPromise(exe, params, opts=null) {
+  return spawn(exe, params, opts).toPromise();
 }
