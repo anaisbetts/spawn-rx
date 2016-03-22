@@ -141,7 +141,7 @@ export function spawnDetached(exe, params, opts=null) {
 
   if (!isWindows) return spawn(cmd, args, _.assign({}, opts || {}, {detached: true }));
   const newParams = [cmd].concat(args);
-  
+
   let target = path.join(__dirname, '..', 'vendor', 'jobber', 'jobber.exe');
   let options = _.assign({}, opts || {}, { detached: true, jobber: true });
 
@@ -243,7 +243,18 @@ export function spawn(exe, params=[], opts=null) {
     });
   });
 
-  return spawnObs.publish().refCount();
+  return spawnObs;
+}
+
+function wrapObservableInPromise(obs) {
+  return new Promise((res, rej) => {
+    let out = '';
+
+    obs.subscribe(
+      (x) => out += x,
+      (e) => rej(new Error(`${out}\n${e.message}`)),
+      () => res(out));
+  });
 }
 
 /**
@@ -261,7 +272,7 @@ export function spawn(exe, params=[], opts=null) {
  *                                 an Error.
  */
 export function spawnDetachedPromise(exe, params, opts=null) {
-  return spawnDetached(exe, params, opts).toPromise();
+  return wrapObservableInPromise(spawnDetached(exe, params, opts));
 }
 
 
@@ -279,5 +290,5 @@ export function spawnDetachedPromise(exe, params, opts=null) {
  *                                 an Error.
  */
 export function spawnPromise(exe, params, opts=null) {
-  return spawn(exe, params, opts).toPromise();
+  return wrapObservableInPromise(spawn(exe, params, opts));
 }
