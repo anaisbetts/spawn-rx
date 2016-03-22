@@ -21,6 +21,7 @@
   "bugs": {
     "url": "https://github.com/paulcbetts/spawn-rx/issues"
   },
+  "main": "lib/index.js",
   "homepage": "https://github.com/paulcbetts/spawn-rx",
   "dependencies": {
     "babel-polyfill": "^6.3.14",
