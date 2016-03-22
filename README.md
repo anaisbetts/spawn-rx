@@ -57,6 +57,14 @@ spawn('ls', ['-r'])
     (e) => console.log("Process exited with an error"));
 ```
 
+Execute scripts:
+
+```js
+// Executes ./node_modules/.bin/uuid.cmd on Windows if invoked via `npm run`
+let result = await spawnPromise('uuid');
+```
+
+
 ## What's Jobber?
 
 Jobber is a Windows executable that will execute a command in a process group,
