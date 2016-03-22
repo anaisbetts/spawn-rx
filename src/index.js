@@ -103,9 +103,9 @@ export function findActualExecutable(exe, args) {
 
   if (exe.match(/\.(bat|cmd)$/i)) {
     let cmd = path.join(process.env.SYSTEMROOT, 'System32', 'cmd.exe');
-    let cmdArgs = ['/C', exe];
+    let cmdArgs = ['/C', `${exe} ${args.join(' ')}`];
 
-    return { cmd: cmd, args: cmdArgs.concat(args) };
+    return { cmd: cmd, args: cmdArgs };
   }
 
   if (exe.match(/\.(js)$/i)) {
