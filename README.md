@@ -24,8 +24,8 @@ spawn-as-promise:
 ```js
 // Will run down path to find C:\Windows\System32\wmic.exe, whereas normal 
 // 'spawn' would require an absolute path.
-let result = await spawnPromise('wmic', []);
-console.log(result);
+spawnPromise('wmic', [])
+  .then((result) => console.log(result));
 ```
 
 Handle failed processes as errors:
