@@ -14,16 +14,20 @@ export function findActualExecutable(fullPath, args) {
   // POSIX can just execute scripts directly, no need for silly goosery
   if (process.platform !== 'win32') return { cmd: fullPath, args: args };
   
-  // NB: When you write something like `surf-client ... -- surf-build` on Windows,
-  // a shell would normally convert that to surf-build.cmd, but since it's passed
-  // in as an argument, it doesn't happen
-  const possibleExts = ['.exe', '.bat', '.cmd', '.ps1'];
-  let extension = _.find(possibleExts, (x) => sfs.existsSync(runDownPath(`${fullPath}${x}`)));
-  
-  if (extension) {
-    return findActualExecutable(`${fullPath}${extension}`, args);
-  }
+  if (!sfs.existsSync(fullPath)) {
+    // NB: When you write something like `surf-client ... -- surf-build` on Windows,
+    // a shell would normally convert that to surf-build.cmd, but since it's passed
+    // in as an argument, it doesn't happen
+    const possibleExts = ['.exe', '.bat', '.cmd', '.ps1'];
+    for (let ext of possibleExts) {
+      let possibleFullPath = runDownPath(`${fullPath}${ext}`);
 
+      if (sfs.existsSync(possibleFullPath)) {
+        return findActualExecutable(possibleFullPath, args);
+      }
+    }
+  }
+  
   if (fullPath.match(/\.ps1$/i)) {
     let cmd = path.join(process.env.SYSTEMROOT, 'System32', 'WindowsPowerShell', 'v1.0', 'PowerShell.exe');
     let psargs = ['-ExecutionPolicy', 'Unrestricted', '-NoLogo', '-NonInteractive', '-File', fullPath];
