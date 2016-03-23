@@ -210,7 +210,6 @@ export function spawn(exe, params=[], opts=null) {
       stderrCompleted = Observable.just(true);
     }
 
-    proc.stderr.on('data', bufHandler);
     proc.on('error', (e) => {
       noClose = true;
       subj.onError(e);
