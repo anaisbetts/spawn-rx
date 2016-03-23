@@ -78,7 +78,7 @@ function runDownPath(exe) {
  */
 export function findActualExecutable(exe, args) {
   // POSIX can just execute scripts directly, no need for silly goosery
-  if (process.platform !== 'win32') return { cmd: exe, args: args };
+  if (process.platform !== 'win32') return { cmd: runDownPath(exe), args: args };
 
   if (!sfs.existsSync(exe)) {
     // NB: When you write something like `surf-client ... -- surf-build` on Windows,
