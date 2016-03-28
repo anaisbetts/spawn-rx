@@ -231,14 +231,13 @@ export function spawn(exe, params=[], opts=null) {
       if (noClose) return;
 
       d(`Killing process: ${cmd} ${args.join()}`);
-      if (!opts.jobber) {
+      if (opts && opts.jobber) {
+        // NB: Connecting to Jobber's named pipe will kill it
+        net.connect(`\\\\.\\pipe\\jobber-${proc.pid}`);
+        setTimeout(() => proc.kill(), 5*1000);
+      } else {
         proc.kill();
-        return;
       }
-
-      // NB: Connecting to Jobber's named pipe will kill it
-      net.connect(`\\\\.\\pipe\\jobber-${proc.pid}`);
-      setTimeout(() => proc.kill(), 5*1000);
     });
   });
 

@@ -40,6 +40,12 @@ function wrapSplitObservableInPromise(obs) {
 }
 
 describe('The spawn method', function() {
+  it('should return a disposable subscription', async function() {
+    // this only check the dispose goes w/o error, not that the spawned process is killed
+    // (difficult to do that, maybe iterate through child processes and check ?)
+    spawn('sleep', ['2']).subscribe().dispose();
+  });
+
   it('should return split stderr in a inner tag when called with split', async function() {
     // provide an invalid param to uuid so it complains on stderr
     let rxSpawn = spawn('uuid', ['foo'], {split: true});
