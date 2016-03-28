@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import path from 'path';
 import net from 'net';
-import { Observable, Disposable, AsyncSubject } from 'rx';
+import { Observable, Disposable, CompositeDisposable, AsyncSubject } from 'rx';
 import sfs from 'fs';
 
 const spawnOg = require('child_process').spawn;
@@ -166,17 +166,13 @@ export function spawnDetached(exe, params, opts=null) {
  *                                    the Observable will terminate with onError.
  */
 export function spawn(exe, params=[], opts=null) {
+  opts = opts || {};
   let spawnObs = Observable.create((subj) => {
     let proc = null;
 
     let { cmd, args } = findActualExecutable(exe, params);
-    if (!opts) {
-      d(`spawning process: ${cmd} ${args.join()}`);
-      proc = spawnOg(cmd, args);
-    } else {
-      d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(opts)}`);
-      proc = spawnOg(cmd, args, _.omit(opts, 'jobber', 'split'));
-    }
+    d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(opts)}`);
+    proc = spawnOg(cmd, args, _.omit(opts, 'jobber', 'split'));
 
     let bufHandler = (source) => (b) => {
       if (b.length < 1) return;
@@ -189,6 +185,20 @@ export function spawn(exe, params=[], opts=null) {
 
       subj.onNext({source: source, text: chunk});
     };
+    
+    let ret = new CompositeDisposable();
+
+    if (opts.stdin) {
+      if (proc.stdin) {
+        ret.add(opts.stdin.subscribe(
+          (x) => proc.stdin.write(x),
+          subj.onError,
+          () => proc.stdin.end()
+        ));
+      } else {
+        subj.onError(new Error(`opts.stdio conflicts with provided spawn opts.stdin observable, 'pipe' is required`));
+      }
+    }
 
     let stderrCompleted = null;
     let stdoutCompleted = null;
@@ -227,21 +237,22 @@ export function spawn(exe, params=[], opts=null) {
       }
     });
 
-    return Disposable.create(() => {
+    ret.add(Disposable.create(() => {
       if (noClose) return;
 
       d(`Killing process: ${cmd} ${args.join()}`);
-      if (opts && opts.jobber) {
+      if (opts.jobber) {
         // NB: Connecting to Jobber's named pipe will kill it
         net.connect(`\\\\.\\pipe\\jobber-${proc.pid}`);
         setTimeout(() => proc.kill(), 5*1000);
       } else {
         proc.kill();
       }
-    });
+    }));
+    return ret;
   });
 
-  return opts && opts.split ? spawnObs : spawnObs.pluck('text');
+  return opts.split ? spawnObs : spawnObs.pluck('text');
 }
 
 function wrapObservableInPromise(obs) {

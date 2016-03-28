@@ -80,6 +80,11 @@ Alternatively if you call it with `{ split: true }` option, the observable outpu
  will be an object `{ source: 'stdout', text: '...' }` so you can distinguish
  the outputs.
 
+## Stdin support
+
+If you provide an `observable<string>` in `opts.stdin`, it'll be subscribed upon
+ and fed into the child process stdin. Its completion will terminate stdin stream.
+
 ## Methods
 
 ```js
