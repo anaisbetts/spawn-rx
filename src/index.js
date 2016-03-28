@@ -175,10 +175,10 @@ export function spawn(exe, params=[], opts=null) {
       proc = spawnOg(cmd, args);
     } else {
       d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(opts)}`);
-      proc = spawnOg(cmd, args, _.omit(opts, 'jobber'));
+      proc = spawnOg(cmd, args, _.omit(opts, 'jobber', 'split'));
     }
 
-    let bufHandler = (b) => {
+    let bufHandler = (source) => (b) => {
       if (b.length < 1) return;
       let chunk = "<< String sent back was too long >>";
       try {
@@ -187,7 +187,7 @@ export function spawn(exe, params=[], opts=null) {
         chunk = `<< Lost chunk of process output for ${exe} - length was ${b.length}>>`;
       }
 
-      subj.onNext(chunk);
+      subj.onNext({source: source, text: chunk});
     };
 
     let stderrCompleted = null;
@@ -196,7 +196,7 @@ export function spawn(exe, params=[], opts=null) {
 
     if (proc.stdout) {
       stdoutCompleted = new AsyncSubject();
-      proc.stdout.on('data', bufHandler);
+      proc.stdout.on('data', bufHandler('stdout'));
       proc.stdout.on('close', () => { stdoutCompleted.onNext(true); stdoutCompleted.onCompleted(); });
     } else {
       stdoutCompleted = Observable.just(true);
@@ -204,7 +204,7 @@ export function spawn(exe, params=[], opts=null) {
 
     if (proc.stderr) {
       stderrCompleted = new AsyncSubject();
-      proc.stderr.on('data', bufHandler);
+      proc.stderr.on('data', bufHandler('stderr'));
       proc.stderr.on('close', () => { stderrCompleted.onNext(true); stderrCompleted.onCompleted(); });
     } else {
       stderrCompleted = Observable.just(true);
@@ -242,7 +242,7 @@ export function spawn(exe, params=[], opts=null) {
     });
   });
 
-  return spawnObs;
+  return opts && opts.split ? spawnObs : spawnObs.pluck('text');
 }
 
 function wrapObservableInPromise(obs) {
