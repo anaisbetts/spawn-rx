@@ -71,6 +71,15 @@ Jobber is a Windows executable that will execute a command in a process group,
 and if signaled via a named pipe, will terminate that process group. It's used
 in the implementation of `spawnDetached`.
 
+## Spawn output
+
+By default spawn will merge stdout and stderr into the returned observable.
+You can exclude one or the other by passing `ignore` in the `stdio` option of spawn.
+
+Alternatively if you call it with `{ split: true }` option, the observable output
+ will be an object `{ source: 'stdout', text: '...' }` so you can distinguish
+ the outputs.
+
 ## Methods
 
 ```js
