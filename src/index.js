@@ -1,13 +1,13 @@
 import _ from 'lodash';
 import path from 'path';
 import net from 'net';
-import { Observable, Disposable, CompositeDisposable, AsyncSubject } from 'rx';
+import { Observable, Subscription, AsyncSubject } from 'rxjs';
 import sfs from 'fs';
 
 const spawnOg = require('child_process').spawn;
 const isWindows = process.platform === 'win32';
 
-const d = require('debug')('surf:promise-array');
+const d = require('debug-electron')('surf:promise-array');
 
 /**
  * stat a file but don't throw if it doesn't exist
@@ -183,20 +183,20 @@ export function spawn(exe, params=[], opts=null) {
         chunk = `<< Lost chunk of process output for ${exe} - length was ${b.length}>>`;
       }
 
-      subj.onNext({source: source, text: chunk});
+      subj.next({source: source, text: chunk});
     };
     
-    let ret = new CompositeDisposable();
+    let ret = new Subscription();
 
     if (opts.stdin) {
       if (proc.stdin) {
         ret.add(opts.stdin.subscribe(
           (x) => proc.stdin.write(x),
-          subj.onError,
+          subj.error,
           () => proc.stdin.end()
         ));
       } else {
-        subj.onError(new Error(`opts.stdio conflicts with provided spawn opts.stdin observable, 'pipe' is required`));
+        subj.error(new Error(`opts.stdio conflicts with provided spawn opts.stdin observable, 'pipe' is required`));
       }
     }
 
@@ -207,22 +207,22 @@ export function spawn(exe, params=[], opts=null) {
     if (proc.stdout) {
       stdoutCompleted = new AsyncSubject();
       proc.stdout.on('data', bufHandler('stdout'));
-      proc.stdout.on('close', () => { stdoutCompleted.onNext(true); stdoutCompleted.onCompleted(); });
+      proc.stdout.on('close', () => { stdoutCompleted.next(true); stdoutCompleted.complete(); });
     } else {
-      stdoutCompleted = Observable.just(true);
+      stdoutCompleted = Observable.of(true);
     }
 
     if (proc.stderr) {
       stderrCompleted = new AsyncSubject();
       proc.stderr.on('data', bufHandler('stderr'));
-      proc.stderr.on('close', () => { stderrCompleted.onNext(true); stderrCompleted.onCompleted(); });
+      proc.stderr.on('close', () => { stderrCompleted.next(true); stderrCompleted.complete(); });
     } else {
-      stderrCompleted = Observable.just(true);
+      stderrCompleted = Observable.of(true);
     }
 
     proc.on('error', (e) => {
       noClose = true;
-      subj.onError(e);
+      subj.error(e);
     });
 
     proc.on('close', (code) => {
@@ -231,13 +231,13 @@ export function spawn(exe, params=[], opts=null) {
         .reduce((acc) => acc, true);
 
       if (code === 0) {
-        pipesClosed.subscribe(() => subj.onCompleted());
+        pipesClosed.subscribe(() => subj.complete());
       } else {
-        pipesClosed.subscribe(() => subj.onError(new Error(`Failed with exit code: ${code}`)));
+        pipesClosed.subscribe(() => subj.error(new Error(`Failed with exit code: ${code}`)));
       }
     });
 
-    ret.add(Disposable.create(() => {
+    ret.add(new Subscription(() => {
       if (noClose) return;
 
       d(`Killing process: ${cmd} ${args.join()}`);
@@ -249,6 +249,7 @@ export function spawn(exe, params=[], opts=null) {
         proc.kill();
       }
     }));
+  
     return ret;
   });
 

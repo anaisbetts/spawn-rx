@@ -2,7 +2,7 @@ import './support';
 
 import { spawn, spawnPromise, spawnDetachedPromise } from '../src/index';
 
-import { Observable } from 'rx';
+import { Observable } from 'rxjs';
 
 const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -43,9 +43,9 @@ function wrapSplitObservableInPromise(obs) {
 
 describe('The spawn method', function() {
   it('should return a disposable subscription', async function() {
-    // this only check the dispose goes w/o error, not that the spawned process is killed
+    // this only check the unsubscribe goes w/o error, not that the spawned process is killed
     // (difficult to do that, maybe iterate through child processes and check ?)
-    spawn('sleep', ['2']).subscribe().dispose();
+    spawn('sleep', ['2']).subscribe().unsubscribe();
   });
 
   it('should return split stderr in a inner tag when called with split', async function() {
@@ -78,14 +78,14 @@ describe('The spawn method', function() {
   });
   
   it('should croak if stdin is provided but stdio.stdin is disabled', async function() {
-    let stdin = Observable.return('a');
+    let stdin = Observable.of('a');
     let rxSpawn = spawn('marked', [], {split: true, stdin: stdin, stdio: ['ignore', null, null]});
     let result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.error).to.be.an('error');
   });
   
   it('should subscribe to provided stdin', async function() {
-    let stdin = Observable.return('a');
+    let stdin = Observable.of('a');
     let rxSpawn = spawn('marked', [], {split: true, stdin: stdin});
     let result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.stdout.trim()).to.be.equal('<p>a</p>');
