@@ -7,7 +7,7 @@ import sfs from 'fs';
 const spawnOg = require('child_process').spawn;
 const isWindows = process.platform === 'win32';
 
-const d = require('debug')('surf:promise-array');
+const d = require('debug-electron')('surf:promise-array');
 
 /**
  * stat a file but don't throw if it doesn't exist
