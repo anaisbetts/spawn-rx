@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "babel-cli": "^6.11.4",
-    "babel-eslint": "^6.1.2",
+    "babel-eslint": "^5.0.0-beta6",
     "babel-plugin-transform-async-to-generator": "^6.8.0",
     "babel-preset-es2016-node5": "^1.1.2",
     "babel-register": "^6.11.6",
@@ -39,7 +39,7 @@
     "esdoc": "^0.4.8",
     "esdoc-es7-plugin": "0.0.3",
     "esdoc-plugin-async-to-sync": "^0.5.0",
-    "eslint": "^3.3.1",
+    "eslint": "^1.10.3",
     "mocha": "^3.0.2"
   }
 }
