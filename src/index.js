@@ -1,8 +1,10 @@
-import _ from 'lodash';
 import path from 'path';
 import net from 'net';
 import { Observable, Subscription, AsyncSubject } from 'rxjs';
 import sfs from 'fs';
+
+const assign = require('lodash.assign');
+const omit = require('lodash.omit');
 
 const spawnOg = require('child_process').spawn;
 const isWindows = process.platform === 'win32';
@@ -139,11 +141,11 @@ export function findActualExecutable(exe, args) {
 export function spawnDetached(exe, params, opts=null) {
   let { cmd, args } = findActualExecutable(exe, params);
 
-  if (!isWindows) return spawn(cmd, args, _.assign({}, opts || {}, {detached: true }));
+  if (!isWindows) return spawn(cmd, args, assign({}, opts || {}, {detached: true }));
   const newParams = [cmd].concat(args);
 
   let target = path.join(__dirname, '..', 'vendor', 'jobber', 'jobber.exe');
-  let options = _.assign({}, opts || {}, { detached: true, jobber: true });
+  let options = assign({}, opts || {}, { detached: true, jobber: true });
 
   d(`spawnDetached: ${target}, ${newParams}`);
   return spawn(target, newParams, options);
@@ -172,7 +174,7 @@ export function spawn(exe, params=[], opts=null) {
 
     let { cmd, args } = findActualExecutable(exe, params);
     d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(opts)}`);
-    proc = spawnOg(cmd, args, _.omit(opts, 'jobber', 'split'));
+    proc = spawnOg(cmd, args, omit(opts, 'jobber', 'split'));
 
     let bufHandler = (source) => (b) => {
       if (b.length < 1) return;
@@ -185,7 +187,7 @@ export function spawn(exe, params=[], opts=null) {
 
       subj.next({source: source, text: chunk});
     };
-    
+
     let ret = new Subscription();
 
     if (opts.stdin) {
@@ -249,7 +251,7 @@ export function spawn(exe, params=[], opts=null) {
         proc.kill();
       }
     }));
-  
+
     return ret;
   });
 
