@@ -1,4 +1,3 @@
-import _ from 'lodash';
 import path from 'path';
 import net from 'net';
 import { Observable, Subscription, AsyncSubject } from 'rxjs';
@@ -139,11 +138,11 @@ export function findActualExecutable(exe, args) {
 export function spawnDetached(exe, params, opts=null) {
   let { cmd, args } = findActualExecutable(exe, params);
 
-  if (!isWindows) return spawn(cmd, args, _.assign({}, opts || {}, {detached: true }));
+  if (!isWindows) return spawn(cmd, args, Object.assign({}, opts || {}, {detached: true }));
   const newParams = [cmd].concat(args);
 
   let target = path.join(__dirname, '..', 'vendor', 'jobber', 'jobber.exe');
-  let options = _.assign({}, opts || {}, { detached: true, jobber: true });
+  let options = Object.assign({}, opts || {}, { detached: true, jobber: true });
 
   d(`spawnDetached: ${target}, ${newParams}`);
   return spawn(target, newParams, options);
@@ -172,7 +171,11 @@ export function spawn(exe, params=[], opts=null) {
 
     let { cmd, args } = findActualExecutable(exe, params);
     d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(opts)}`);
-    proc = spawnOg(cmd, args, _.omit(opts, 'jobber', 'split'));
+    let origOpts = Object.assign({}, opts);
+    if ('jobber' in origOpts) delete origOpts.jobber;
+    if ('split' in origOpts) delete origOpts.split;
+
+    proc = spawnOg(cmd, args, origOpts);
 
     let bufHandler = (source) => (b) => {
       if (b.length < 1) return;
@@ -185,7 +188,7 @@ export function spawn(exe, params=[], opts=null) {
 
       subj.next({source: source, text: chunk});
     };
-    
+
     let ret = new Subscription();
 
     if (opts.stdin) {
@@ -249,7 +252,7 @@ export function spawn(exe, params=[], opts=null) {
         proc.kill();
       }
     }));
-  
+
     return ret;
   });
 
