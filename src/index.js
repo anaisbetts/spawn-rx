@@ -1,7 +1,14 @@
 import path from 'path';
 import net from 'net';
-import { Observable, Subscription, AsyncSubject } from 'rxjs';
 import sfs from 'fs';
+
+import 'rxjs/add/observable/of';
+import 'rxjs/add/observable/merge';
+import 'rxjs/add/operator/pluck';
+import 'rxjs/add/operator/reduce';
+import { Observable } from 'rxjs/Observable';
+import { Subscription } from 'rxjs/Subscription';
+import { AsyncSubject } from 'rxjs/AsyncSubject';
 
 const spawnOg = require('child_process').spawn;
 const isWindows = process.platform === 'win32';
