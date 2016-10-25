@@ -1,5 +1,9 @@
 # spawn-rx: A better version of spawn
 
+| Linux/OSX | Windows |
+| --- | --- |
+| [![Build Status](https://travis-ci.org/tools-rx/spawn-rx.svg?branch=master)](https://travis-ci.org/tools-rx/spawn-rx) | [![Build status](https://ci.appveyor.com/api/projects/status/xm9xpgma4jwy3xns?svg=true)](https://ci.appveyor.com/project/dfbaskin/spawn-rx) |
+
 `spawn-rx` is a package that adds an Observable as well as a Promise version of 
 the `child_process.spawn` API, and fixes some deficiencies in `spawn` that come 
 up especially on Windows. For example:
