@@ -1,6 +1,6 @@
 {
   "name": "spawn-rx",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "An Rx-version of child_process.spawn",
   "scripts": {
     "doc": "esdoc -c ./esdoc.json",
