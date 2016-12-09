@@ -25,7 +25,7 @@
   "homepage": "https://github.com/paulcbetts/spawn-rx",
   "dependencies": {
     "debug-electron": "^0.0.3",
-    "rxjs": "^5.0.0-rc.4"
+    "rxjs": "^5.0.0-rc.5"
   },
   "devDependencies": {
     "babel-cli": "^6.18.0",
@@ -38,7 +38,7 @@
     "esdoc": "^0.4.8",
     "esdoc-es7-plugin": "0.0.3",
     "esdoc-plugin-async-to-sync": "^0.5.0",
-    "eslint": "^3.10.2",
-    "mocha": "^3.1.2"
+    "eslint": "^3.11.1",
+    "mocha": "^3.2.0"
   }
 }
