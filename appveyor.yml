@@ -5,12 +5,13 @@ platform:
 environment:
   matrix:
     - nodejs_version: "6"
-    - nodejs_version: "5"
-    - nodejs_version: "4"
 
 install:
   - ps: Install-Product node $env:nodejs_version $env:platform
   - npm install
+  - where sleep
+  - where marked
+  - where uuid
 
 test_script:
   # run tests

@@ -3,8 +3,12 @@ dist: trusty
 os:
   - linux
   - osx
+cache:
+  yarn: true
+notifications:
+  email: false
 language: node_js
 node_js:
-  - "6"
-  - "5"
-  - "4"
+  - '7'
+  - '6'
+  - '4'
