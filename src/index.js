@@ -13,7 +13,7 @@ import { AsyncSubject } from 'rxjs/AsyncSubject';
 const spawnOg = require('child_process').spawn;
 const isWindows = process.platform === 'win32';
 
-const d = require('debug-electron')('surf:promise-array');
+const d = require('debug')('spawn-rx');
 
 /**
  * stat a file but don't throw if it doesn't exist
