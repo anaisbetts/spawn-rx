@@ -91,5 +91,4 @@ describe('The spawn method', function() {
     expect(result.stdout.trim()).to.be.equal('<p>a</p>');
   });
 
-
 });

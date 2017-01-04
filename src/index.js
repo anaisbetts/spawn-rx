@@ -109,7 +109,7 @@ export function findActualExecutable(exe, args) {
 
   if (exe.match(/\.(bat|cmd)$/i)) {
     let cmd = path.join(process.env.SYSTEMROOT, 'System32', 'cmd.exe');
-    let cmdArgs = ['/C', `${exe} ${args.join(' ')}`];
+    let cmdArgs = ['/C', exe, ...args];
 
     return { cmd: cmd, args: cmdArgs };
   }
@@ -181,6 +181,7 @@ export function spawn(exe, params=[], opts=null) {
     let origOpts = Object.assign({}, opts);
     if ('jobber' in origOpts) delete origOpts.jobber;
     if ('split' in origOpts) delete origOpts.split;
+
 
     proc = spawnOg(cmd, args, origOpts);
 
