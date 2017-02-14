@@ -1,3 +1,4 @@
+import { expect } from 'chai';
 import './support';
 
 import { spawn, spawnPromise, spawnDetachedPromise } from '../src/index';
@@ -24,17 +25,24 @@ describe('The spawnDetachedPromise method', function() {
   });
 });
 
-
-function wrapSplitObservableInPromise(obs) {
+function wrapSplitObservableInPromise(obs: Observable<{
+  source: any,
+  text: any
+}>): Promise<{
+  stderr: string,
+  stdout: string,
+  error: Error | undefined
+}> {
   return new Promise((res) => {
-    let out = {stderr: '', stdout: ''};
+    let out = {stderr: '', stdout: '', error: undefined };
 
     obs.subscribe(
       (x) => {
-        if (x.source === 'stdout')
+        if (x.source === 'stdout') {
           out.stdout += x.text;
-        else
+        } else {
           out.stderr += x.text;
+        }
       },
       (e) => { out.error = e; res(out); },
       () => res(out));
@@ -50,7 +58,7 @@ describe('The spawn method', function() {
 
   it('should return split stderr in a inner tag when called with split', async function() {
     // provide an invalid param to uuid so it complains on stderr
-    let rxSpawn = spawn('uuid', ['foo'], {split: true});
+    let rxSpawn: Observable<{ source: any, text: any }> = spawn('uuid', ['foo'], {split: true}) as any;
     let result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.stderr.length > 10).to.be.ok;
     expect(result.stdout).to.be.empty;
@@ -58,7 +66,7 @@ describe('The spawn method', function() {
   });
 
   it('should return split stdout in a inner tag when called with split', async function() {
-    let rxSpawn = spawn('uuid', [], {split: true});
+    let rxSpawn: Observable<{ source: any, text: any }> = spawn('uuid', [], {split: true});
     let result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.stdout.match(uuidRegex)).to.be.ok;
     expect(result.stderr).to.be.empty;
@@ -66,30 +74,29 @@ describe('The spawn method', function() {
   });
 
   it('should ignore stderr if options.stdio = ignore', async function() {
-    let rxSpawn = spawn('uuid', ['foo'], {split: true, stdio: [null, null, 'ignore']});
+    let rxSpawn: Observable<{ source: any, text: any }> = spawn('uuid', ['foo'], {split: true, stdio: [null, null, 'ignore']});
     let result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.stderr).to.be.empty;
   });
 
   it('should ignore stdout if options.stdio = inherit', async function() {
-    let rxSpawn = spawn('uuid', [], {split: true, stdio: [null, 'inherit', null]});
+    let rxSpawn: Observable<{ source: any, text: any }> = spawn('uuid', [], {split: true, stdio: [null, 'inherit', null]});
     let result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.stdout).to.be.empty;
   });
-  
+
   it('should croak if stdin is provided but stdio.stdin is disabled', async function() {
     let stdin = Observable.of('a');
-    let rxSpawn = spawn('marked', [], {split: true, stdin: stdin, stdio: ['ignore', null, null]});
+    let rxSpawn: Observable<{ source: any, text: any }>  = spawn('marked', [], {split: true, stdin: stdin, stdio: ['ignore', null, null]});
     let result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.error).to.be.an('error');
   });
-  
+
   it('should subscribe to provided stdin', async function() {
     let stdin = Observable.of('a');
-    let rxSpawn = spawn('marked', [], {split: true, stdin: stdin});
+    let rxSpawn: Observable<{ source: any, text: any }> = spawn('marked', [], {split: true, stdin: stdin});
     let result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.stdout.trim()).to.be.equal('<p>a</p>');
   });
-
 
 });
