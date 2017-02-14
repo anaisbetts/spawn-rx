@@ -1,19 +1,23 @@
-import path from 'path';
-import net from 'net';
-import sfs from 'fs';
+import * as path from 'path';
+import * as net from 'net';
+import * as sfs from 'fs';
+import * as assign from 'lodash.assign';
 
 import 'rxjs/add/observable/of';
 import 'rxjs/add/observable/merge';
 import 'rxjs/add/operator/pluck';
 import 'rxjs/add/operator/reduce';
 import { Observable } from 'rxjs/Observable';
+import { Observer } from 'rxjs/Observer';
 import { Subscription } from 'rxjs/Subscription';
 import { AsyncSubject } from 'rxjs/AsyncSubject';
+import { Subject } from 'rxjs/Subject';
+import * as childProcess from 'child_process';
 
-const spawnOg = require('child_process').spawn;
+const spawnOg: typeof childProcess.spawn = require('child_process').spawn; //tslint:disable-line:no-var-requires
 const isWindows = process.platform === 'win32';
 
-const d = require('debug')('spawn-rx');
+const d = require('debug')('spawn-rx'); //tslint:disable-line:no-var-requires
 
 /**
  * stat a file but don't throw if it doesn't exist
@@ -23,7 +27,7 @@ const d = require('debug')('spawn-rx');
  *
  * @private
  */
-function statSyncNoException(file) {
+function statSyncNoException(file: string): sfs.Stats | null {
   try {
     return sfs.statSync(file);
   } catch (e) {
@@ -40,7 +44,7 @@ function statSyncNoException(file) {
  *
  * @private
  */
-function runDownPath(exe) {
+function runDownPath(exe: string): string {
   // NB: Windows won't search PATH looking for executables in spawn like
   // Posix does
 
@@ -59,7 +63,9 @@ function runDownPath(exe) {
   let haystack = process.env.PATH.split(isWindows ? ';' : ':');
   for (let p of haystack) {
     let needle = path.join(p, exe);
-    if (statSyncNoException(needle)) return needle;
+    if (statSyncNoException(needle)) {
+      return needle;
+    };
   }
 
   d('Failed to find executable anywhere in path');
@@ -82,9 +88,14 @@ function runDownPath(exe) {
  * @property {string} cmd         The command to pass to spawn
  * @property {Array<string>} args The arguments to pass to spawn
  */
-export function findActualExecutable(exe, args) {
+export function findActualExecutable(exe: string, args: Array<string>): {
+  cmd: string;
+  args: Array<string>
+} {
   // POSIX can just execute scripts directly, no need for silly goosery
-  if (process.platform !== 'win32') return { cmd: runDownPath(exe), args: args };
+  if (process.platform !== 'win32') {
+    return { cmd: runDownPath(exe), args: args };
+  }
 
   if (!sfs.existsSync(exe)) {
     // NB: When you write something like `surf-client ... -- surf-build` on Windows,
@@ -142,19 +153,21 @@ export function findActualExecutable(exe, args) {
  *                                    process terminates with a non-zero value,
  *                                    the Observable will terminate with onError.
  */
-export function spawnDetached(exe, params, opts=null) {
-  let { cmd, args } = findActualExecutable(exe, params);
+export function spawnDetached(exe: string, params: Array<string>, opts: any = null): Observable<string> {
+  const { cmd, args } = findActualExecutable(exe, params);
 
-  if (!isWindows) return spawn(cmd, args, Object.assign({}, opts || {}, {detached: true }));
+  if (!isWindows) {
+    return spawn(cmd, args, assign({}, opts || {}, { detached: true }));
+  };
+
   const newParams = [cmd].concat(args);
 
   let target = path.join(__dirname, '..', 'vendor', 'jobber', 'jobber.exe');
-  let options = Object.assign({}, opts || {}, { detached: true, jobber: true });
+  let options = assign({}, opts || {}, { detached: true, jobber: true });
 
   d(`spawnDetached: ${target}, ${newParams}`);
   return spawn(target, newParams, options);
 }
-
 
 /**
  * Spawns a process attached as a child of the current process.
@@ -171,30 +184,37 @@ export function spawnDetached(exe, params, opts=null) {
  *                                    process terminates with a non-zero value,
  *                                    the Observable will terminate with onError.
  */
-export function spawn(exe, params=[], opts=null) {
-  opts = opts || {};
-  let spawnObs = Observable.create((subj) => {
-    let proc = null;
 
+export function spawn<T>(exe: string, params: Array<string> = [], opts: any = null): Observable<T|string> {
+  opts = opts || {};
+  let spawnObs = Observable.create((subj: Observer<{
+    source: any,
+    text: any
+    }>) => {
     let { cmd, args } = findActualExecutable(exe, params);
     d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(opts)}`);
-    let origOpts = Object.assign({}, opts);
-    if ('jobber' in origOpts) delete origOpts.jobber;
-    if ('split' in origOpts) delete origOpts.split;
+    let origOpts = assign({}, opts);
+    if ('jobber' in origOpts) {
+      delete origOpts.jobber;
+    }
+    if ('split' in origOpts) {
+      delete origOpts.split;
+    };
 
+    const proc = spawnOg(cmd, args, origOpts);
 
-    proc = spawnOg(cmd, args, origOpts);
-
-    let bufHandler = (source) => (b) => {
-      if (b.length < 1) return;
-      let chunk = "<< String sent back was too long >>";
+    let bufHandler = (source: string) => (b: string | Buffer) => {
+      if (b.length < 1) {
+        return;
+      };
+      let chunk = '<< String sent back was too long >>';
       try {
         chunk = b.toString();
       } catch (e) {
         chunk = `<< Lost chunk of process output for ${exe} - length was ${b.length}>>`;
       }
 
-      subj.next({source: source, text: chunk});
+      subj.next({ source: source, text: chunk });
     };
 
     let ret = new Subscription();
@@ -202,7 +222,7 @@ export function spawn(exe, params=[], opts=null) {
     if (opts.stdin) {
       if (proc.stdin) {
         ret.add(opts.stdin.subscribe(
-          (x) => proc.stdin.write(x),
+          (x: any) => proc.stdin.write(x),
           subj.error,
           () => proc.stdin.end()
         ));
@@ -211,34 +231,34 @@ export function spawn(exe, params=[], opts=null) {
       }
     }
 
-    let stderrCompleted = null;
-    let stdoutCompleted = null;
+    let stderrCompleted: Subject<boolean> | Observable<boolean> | null = null;
+    let stdoutCompleted: Subject<boolean> | Observable<boolean> | null = null;
     let noClose = false;
 
     if (proc.stdout) {
-      stdoutCompleted = new AsyncSubject();
+      stdoutCompleted = new AsyncSubject<boolean>();
       proc.stdout.on('data', bufHandler('stdout'));
-      proc.stdout.on('close', () => { stdoutCompleted.next(true); stdoutCompleted.complete(); });
+      proc.stdout.on('close', () => { (stdoutCompleted! as Subject<boolean>).next(true); (stdoutCompleted! as Subject<boolean>).complete(); });
     } else {
       stdoutCompleted = Observable.of(true);
     }
 
     if (proc.stderr) {
-      stderrCompleted = new AsyncSubject();
+      stderrCompleted = new AsyncSubject<boolean>();
       proc.stderr.on('data', bufHandler('stderr'));
-      proc.stderr.on('close', () => { stderrCompleted.next(true); stderrCompleted.complete(); });
+      proc.stderr.on('close', () => { (stderrCompleted! as Subject<boolean>).next(true); (stderrCompleted! as Subject<boolean>).complete(); });
     } else {
       stderrCompleted = Observable.of(true);
     }
 
-    proc.on('error', (e) => {
+    proc.on('error', (e: Error) => {
       noClose = true;
       subj.error(e);
     });
 
-    proc.on('close', (code) => {
+    proc.on('close', (code: number) => {
       noClose = true;
-      let pipesClosed = Observable.merge(stdoutCompleted, stderrCompleted)
+      let pipesClosed = Observable.merge(stdoutCompleted!, stderrCompleted!)
         .reduce((acc) => acc, true);
 
       if (code === 0) {
@@ -249,13 +269,15 @@ export function spawn(exe, params=[], opts=null) {
     });
 
     ret.add(new Subscription(() => {
-      if (noClose) return;
+      if (noClose) {
+        return;
+      };
 
       d(`Killing process: ${cmd} ${args.join()}`);
       if (opts.jobber) {
         // NB: Connecting to Jobber's named pipe will kill it
         net.connect(`\\\\.\\pipe\\jobber-${proc.pid}`);
-        setTimeout(() => proc.kill(), 5*1000);
+        setTimeout(() => proc.kill(), 5 * 1000);
       } else {
         proc.kill();
       }
@@ -267,7 +289,7 @@ export function spawn(exe, params=[], opts=null) {
   return opts.split ? spawnObs : spawnObs.pluck('text');
 }
 
-function wrapObservableInPromise(obs) {
+function wrapObservableInPromise<T>(obs: Observable<T>) {
   return new Promise((res, rej) => {
     let out = '';
 
@@ -292,10 +314,9 @@ function wrapObservableInPromise(obs) {
  *                                 non-zero value, the Promise will resolve with
  *                                 an Error.
  */
-export function spawnDetachedPromise(exe, params, opts=null) {
-  return wrapObservableInPromise(spawnDetached(exe, params, opts));
+export function spawnDetachedPromise(exe: string, params: Array<string>, opts: any = null): Promise<string> {
+  return wrapObservableInPromise<string>(spawnDetached(exe, params, opts));
 }
-
 
 /**
  * Spawns a process as a child process.
@@ -310,6 +331,6 @@ export function spawnDetachedPromise(exe, params, opts=null) {
  *                                 non-zero value, the Promise will resolve with
  *                                 an Error.
  */
-export function spawnPromise(exe, params, opts=null) {
-  return wrapObservableInPromise(spawn(exe, params, opts));
+export function spawnPromise(exe: string, params: Array<string>, opts: any = null): Promise<string> {
+  return wrapObservableInPromise<string>(spawn(exe, params, opts));
 }
