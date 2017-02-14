@@ -3,10 +3,11 @@
   "version": "2.0.8",
   "description": "An Rx-version of child_process.spawn",
   "scripts": {
-    "doc": "esdoc -c ./esdoc.json",
-    "compile": "babel -d lib/ src/",
+    "doc": "echo \"esdoc may not work correctly\" && esdoc -c ./esdoc.json",
+    "compile": "tsc",
     "prepublish": "npm run compile",
-    "test": "mocha --compilers js:babel-register ./test/*"
+    "lint": "tslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "test": "mocha --compilers ts:ts-node/register ./test/*"
   },
   "repository": {
     "type": "git",
@@ -21,24 +22,29 @@
   "bugs": {
     "url": "https://github.com/paulcbetts/spawn-rx/issues"
   },
-  "main": "lib/index.js",
+  "main": "lib/src/index.js",
+  "typings": "lib/src/index.d.ts",
   "homepage": "https://github.com/paulcbetts/spawn-rx",
   "dependencies": {
     "debug": "^2.5.1",
-    "rxjs": "^5.0.0-rc.5"
+    "lodash.assign": "^4.2.0",
+    "rxjs": "^5.1.1"
   },
   "devDependencies": {
-    "babel-cli": "^6.18.0",
-    "babel-eslint": "^7.1.1",
-    "babel-plugin-transform-async-to-generator": "^6.16.0",
-    "babel-preset-es2016-node5": "^1.1.2",
+    "@types/chai": "^3.4.34",
+    "@types/chai-as-promised": "0.0.29",
+    "@types/es6-promise": "0.0.32",
+    "@types/mocha": "^2.2.39",
+    "@types/node": "^7.0.5",
     "babel-register": "^6.18.0",
     "chai": "^3.5.0",
     "chai-as-promised": "^6.0.0",
     "esdoc": "^0.4.8",
     "esdoc-es7-plugin": "0.0.3",
     "esdoc-plugin-async-to-sync": "^0.5.0",
-    "eslint": "^3.11.1",
-    "mocha": "^3.2.0"
+    "mocha": "^3.2.0",
+    "ts-node": "^2.1.0",
+    "tslint": "^4.4.2",
+    "typescript": "^2.1.6"
   }
 }
