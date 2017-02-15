@@ -43,10 +43,12 @@
     "esdoc": "^0.4.8",
     "esdoc-es7-plugin": "0.0.3",
     "esdoc-plugin-async-to-sync": "^0.5.0",
+    "marked": "^0.3.6",
     "mocha": "^3.2.0",
     "npm-run-all": "^4.0.1",
     "ts-node": "^2.1.0",
     "tslint": "^4.4.2",
-    "typescript": "^2.1.6"
+    "typescript": "^2.1.6",
+    "uuid": "^3.0.1"
   }
 }
