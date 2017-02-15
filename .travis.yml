@@ -4,11 +4,21 @@ os:
   - linux
   - osx
 cache:
-  yarn: true
+  directories:
+    - node_modules
 notifications:
   email: false
 language: node_js
 node_js:
-  - '7'
-  - '6'
-  - '4'
+  - 7
+  - 6
+  - 4
+install:
+  - npm install
+branches:
+  only:
+    - master
+before_script:
+  - npm prune
+script:
+  - npm run build
