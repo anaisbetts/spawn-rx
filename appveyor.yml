@@ -2,6 +2,9 @@
 platform:
   - x64
 
+cache:
+  - node_modules
+
 environment:
   matrix:
     - nodejs_version: "7"
@@ -13,6 +16,6 @@ install:
   - npm install
 
 test_script:
-  - npm test
+  - npm run build
 
 build: off

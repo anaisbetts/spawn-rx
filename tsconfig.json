@@ -17,8 +17,9 @@
     "target": "es5",
     "outDir": "lib",
     "lib": ["dom", "es2015"],
-    "types": ["node", "mocha", "chai"],
-    "typeRoots": ["node_modules/@types"]
+    "typeRoots": [
+      "./node_modules/@types"
+    ]
   },
   "formatCodeOptions": {
     "indentSize": 2,
