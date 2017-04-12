@@ -136,6 +136,20 @@ export function findActualExecutable(exe: string, args: Array<string>): {
   return { cmd: exe, args: args };
 }
 
+export interface SpawnOptionsBase {
+  readonly detached?: boolean;
+  readonly jobber?: boolean;
+  readonly stdin?: Observable<string>;
+  readonly stdio?: ('ignore' | 'inherit' | null)[];
+}
+export type SpawnOptionsSplit = { split: true } & SpawnOptionsBase;
+export type SpawnOptionsNoSplit = { split?: false } & SpawnOptionsBase;
+export type SpawnOptions = SpawnOptionsSplit | SpawnOptionsNoSplit;
+export interface SplitOutput {
+  readonly source: 'stdout' | 'stderr';
+  readonly text: string;
+}
+
 /**
  * Spawns a process but detached from the current process. The process is put
  * into its own Process Group that can be killed by unsubscribing from the
@@ -153,17 +167,19 @@ export function findActualExecutable(exe: string, args: Array<string>): {
  *                                    process terminates with a non-zero value,
  *                                    the Observable will terminate with onError.
  */
-export function spawnDetached(exe: string, params: Array<string>, opts: any = null): Observable<string> {
+export function spawnDetached(exe: string, params: Array<string>, opts: SpawnOptionsSplit): Observable<SpawnOptionsSplit>;
+export function spawnDetached(exe: string, params: Array<string>, opts: SpawnOptionsNoSplit): Observable<string>;
+export function spawnDetached(exe: string, params: Array<string>, opts: SpawnOptions = {}): Observable<string | {}> {
   const { cmd, args } = findActualExecutable(exe, params);
 
   if (!isWindows) {
-    return spawn(cmd, args, assign({}, opts || {}, { detached: true }));
+    return spawn(cmd, args, assign({}, opts, { detached: true }));
   };
 
   const newParams = [cmd].concat(args);
 
   let target = path.join(__dirname, '..', '..', 'vendor', 'jobber', 'jobber.exe');
-  let options = assign({}, opts || {}, { detached: true, jobber: true });
+  let options = assign({}, opts, { detached: true, jobber: true });
 
   d(`spawnDetached: ${target}, ${newParams}`);
   return spawn(target, newParams, options);
@@ -185,8 +201,9 @@ export function spawnDetached(exe: string, params: Array<string>, opts: any = nu
  *                                    the Observable will terminate with onError.
  */
 
-export function spawn<T>(exe: string, params: Array<string> = [], opts: any = null): Observable<T|string> {
-  opts = opts || {};
+export function spawn(exe: string, params: Array<string>, opts?: SpawnOptionsNoSplit): Observable<string>;
+export function spawn(exe: string, params: Array<string>, opts?: SpawnOptionsSplit): Observable<SplitOutput>;
+export function spawn(exe: string, params: Array<string> = [], opts: SpawnOptions = {}): Observable<SplitOutput|string> {
   let spawnObs = Observable.create((subj: Observer<{
     source: any,
     text: any
@@ -314,7 +331,7 @@ function wrapObservableInPromise<T>(obs: Observable<T>) {
  *                                 non-zero value, the Promise will resolve with
  *                                 an Error.
  */
-export function spawnDetachedPromise(exe: string, params: Array<string>, opts: any = null): Promise<string> {
+export function spawnDetachedPromise(exe: string, params: Array<string>, opts: SpawnOptionsNoSplit = {}): Promise<string> {
   return wrapObservableInPromise<string>(spawnDetached(exe, params, opts));
 }
 
@@ -331,6 +348,6 @@ export function spawnDetachedPromise(exe: string, params: Array<string>, opts: a
  *                                 non-zero value, the Promise will resolve with
  *                                 an Error.
  */
-export function spawnPromise(exe: string, params: Array<string>, opts: any = null): Promise<string> {
+export function spawnPromise(exe: string, params: Array<string>, opts: SpawnOptionsNoSplit = {}): Promise<string> {
   return wrapObservableInPromise<string>(spawn(exe, params, opts));
 }
