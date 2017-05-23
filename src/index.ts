@@ -209,7 +209,11 @@ export function spawn<T>(exe: string, params: Array<string> = [], opts: any = nu
       };
       let chunk = '<< String sent back was too long >>';
       try {
-        chunk = b.toString();
+        if (typeof b === 'string') {
+          chunk = b.toString();
+        } else {
+          chunk = b.toString(origOpts.encoding || 'utf8');
+        }
       } catch (e) {
         chunk = `<< Lost chunk of process output for ${exe} - length was ${b.length}>>`;
       }
