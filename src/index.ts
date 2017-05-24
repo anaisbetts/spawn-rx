@@ -162,7 +162,7 @@ export function spawnDetached(exe: string, params: Array<string>, opts: any = nu
 
   const newParams = [cmd].concat(args);
 
-  let target = path.join(__dirname, '..', '..', 'vendor', 'jobber', 'jobber.exe');
+  let target = path.join(__dirname, '..', '..', 'vendor', 'jobber', 'Jobber.exe');
   let options = assign({}, opts || {}, { detached: true, jobber: true });
 
   d(`spawnDetached: ${target}, ${newParams}`);
