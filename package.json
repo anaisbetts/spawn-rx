@@ -23,8 +23,8 @@
   "bugs": {
     "url": "https://github.com/paulcbetts/spawn-rx/issues"
   },
-  "main": "lib/src/index.js",
-  "typings": "lib/src/index.d.ts",
+  "main": "src/index.ts",
+  "typings": "src/index.ts",
   "homepage": "https://github.com/paulcbetts/spawn-rx",
   "dependencies": {
     "debug": "^2.5.1",
