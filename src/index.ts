@@ -191,9 +191,10 @@ export function spawn<T = string>(exe: string, params: Array<string> = [], opts:
     source: any,
     text: any
     }>) => {
+    let { stdin, ...optsWithoutStdIn } = opts;
     let { cmd, args } = findActualExecutable(exe, params);
-    d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(opts)}`);
-    let origOpts = assign({}, opts);
+    d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(optsWithoutStdIn)}`);
+    let origOpts = assign({}, optsWithoutStdIn);
     if ('jobber' in origOpts) {
       delete origOpts.jobber;
     }
