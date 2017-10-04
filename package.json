@@ -32,22 +32,22 @@
     "rxjs": "^5.1.1"
   },
   "devDependencies": {
-    "@types/chai": "^3.4.35",
-    "@types/chai-as-promised": "0.0.29",
+    "@types/chai": "^4.0.4",
+    "@types/chai-as-promised": "^7.1.0",
     "@types/mocha": "^2.2.39",
-    "@types/node": "^7.0.5",
+    "@types/node": "^8.0.32",
     "babel-register": "^6.23.0",
-    "chai": "^3.5.0",
-    "chai-as-promised": "^6.0.0",
+    "chai": "^4.1.2",
+    "chai-as-promised": "^7.1.1",
     "esdoc": "^0.5.2",
     "esdoc-es7-plugin": "0.0.3",
     "esdoc-plugin-async-to-sync": "^0.5.0",
     "marked": "^0.3.6",
-    "mocha": "^3.2.0",
+    "mocha": "^4.0.0",
     "npm-run-all": "^4.0.2",
-    "ts-node": "^2.1.0",
-    "tslint": "^4.4.2",
+    "ts-node": "^3.3.0",
+    "tslint": "^5.7.0",
     "typescript": "^2.2.1",
-    "uuid": "^3.0.1"
+    "uuid": "3.0.1"
   }
 }

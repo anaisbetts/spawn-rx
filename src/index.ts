@@ -60,7 +60,7 @@ function runDownPath(exe: string): string {
     return target;
   }
 
-  let haystack = process.env.PATH.split(isWindows ? ';' : ':');
+  let haystack = process.env.PATH!.split(isWindows ? ';' : ':');
   for (let p of haystack) {
     let needle = path.join(p, exe);
     if (statSyncNoException(needle)) {
@@ -112,14 +112,14 @@ export function findActualExecutable(exe: string, args: Array<string>): {
   }
 
   if (exe.match(/\.ps1$/i)) {
-    let cmd = path.join(process.env.SYSTEMROOT, 'System32', 'WindowsPowerShell', 'v1.0', 'PowerShell.exe');
+    let cmd = path.join(process.env.SYSTEMROOT!, 'System32', 'WindowsPowerShell', 'v1.0', 'PowerShell.exe');
     let psargs = ['-ExecutionPolicy', 'Unrestricted', '-NoLogo', '-NonInteractive', '-File', exe];
 
     return { cmd: cmd, args: psargs.concat(args) };
   }
 
   if (exe.match(/\.(bat|cmd)$/i)) {
-    let cmd = path.join(process.env.SYSTEMROOT, 'System32', 'cmd.exe');
+    let cmd = path.join(process.env.SYSTEMROOT!, 'System32', 'cmd.exe');
     let cmdArgs = ['/C', exe, ...args];
 
     return { cmd: cmd, args: cmdArgs };
@@ -185,15 +185,16 @@ export function spawnDetached(exe: string, params: Array<string>, opts: any = nu
  *                                    the Observable will terminate with onError.
  */
 
-export function spawn<T>(exe: string, params: Array<string> = [], opts: any = null): Observable<T|string> {
+export function spawn<T = string>(exe: string, params: Array<string> = [], opts: any = null): Observable<T> {
   opts = opts || {};
   let spawnObs = Observable.create((subj: Observer<{
     source: any,
     text: any
     }>) => {
+    let { stdin, ...optsWithoutStdIn } = opts;
     let { cmd, args } = findActualExecutable(exe, params);
-    d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(opts)}`);
-    let origOpts = assign({}, opts);
+    d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(optsWithoutStdIn)}`);
+    let origOpts = assign({}, optsWithoutStdIn);
     if ('jobber' in origOpts) {
       delete origOpts.jobber;
     }
@@ -227,7 +228,7 @@ export function spawn<T>(exe: string, params: Array<string> = [], opts: any = nu
       if (proc.stdin) {
         ret.add(opts.stdin.subscribe(
           (x: any) => proc.stdin.write(x),
-          subj.error,
+          subj.error.bind(subj),
           () => proc.stdin.end()
         ));
       } else {
@@ -294,7 +295,7 @@ export function spawn<T>(exe: string, params: Array<string> = [], opts: any = nu
 }
 
 function wrapObservableInPromise<T>(obs: Observable<T>) {
-  return new Promise((res, rej) => {
+  return new Promise<string>((res, rej) => {
     let out = '';
 
     obs.subscribe(
