@@ -47,7 +47,7 @@
     "npm-run-all": "^4.0.2",
     "ts-node": "^3.3.0",
     "tslint": "^5.7.0",
-    "typescript": "^2.2.1",
+    "typescript": "^2.5.3",
     "uuid": "3.0.1"
   }
 }
