@@ -228,7 +228,7 @@ export function spawn<T = string>(exe: string, params: Array<string> = [], opts:
       if (proc.stdin) {
         ret.add(opts.stdin.subscribe(
           (x: any) => proc.stdin.write(x),
-          subj.error,
+          subj.error.bind(subj),
           () => proc.stdin.end()
         ));
       } else {
