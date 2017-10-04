@@ -16,10 +16,7 @@
     "pretty": true,
     "target": "es5",
     "outDir": "lib",
-    "lib": ["dom", "es2015"],
-    "typeRoots": [
-      "./node_modules/@types"
-    ]
+    "lib": ["dom", "es2015"]
   },
   "formatCodeOptions": {
     "indentSize": 2,
