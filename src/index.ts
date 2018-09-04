@@ -3,15 +3,8 @@ import * as net from 'net';
 import * as sfs from 'fs';
 import * as assign from 'lodash.assign';
 
-import 'rxjs/add/observable/of';
-import 'rxjs/add/observable/merge';
-import 'rxjs/add/operator/pluck';
-import 'rxjs/add/operator/reduce';
-import { Observable } from 'rxjs/Observable';
-import { Observer } from 'rxjs/Observer';
-import { Subscription } from 'rxjs/Subscription';
-import { AsyncSubject } from 'rxjs/AsyncSubject';
-import { Subject } from 'rxjs/Subject';
+import { Observable, Observer, Subscription, AsyncSubject, Subject, of, merge } from 'rxjs';
+import { pluck, reduce } from 'rxjs/operators';
 import * as childProcess from 'child_process';
 
 const spawnOg: typeof childProcess.spawn = require('child_process').spawn; //tslint:disable-line:no-var-requires
@@ -65,7 +58,7 @@ function runDownPath(exe: string): string {
     let needle = path.join(p, exe);
     if (statSyncNoException(needle)) {
       return needle;
-    };
+    }
   }
 
   d('Failed to find executable anywhere in path');
@@ -158,7 +151,7 @@ export function spawnDetached(exe: string, params: Array<string>, opts: any = nu
 
   if (!isWindows) {
     return spawn(cmd, args, assign({}, opts || {}, { detached: true }));
-  };
+  }
 
   const newParams = [cmd].concat(args);
 
@@ -200,14 +193,14 @@ export function spawn<T = string>(exe: string, params: Array<string> = [], opts:
     }
     if ('split' in origOpts) {
       delete origOpts.split;
-    };
+    }
 
     const proc = spawnOg(cmd, args, origOpts);
 
     let bufHandler = (source: string) => (b: string | Buffer) => {
       if (b.length < 1) {
         return;
-      };
+      }
       let chunk = '<< String sent back was too long >>';
       try {
         if (typeof b === 'string') {
@@ -245,7 +238,7 @@ export function spawn<T = string>(exe: string, params: Array<string> = [], opts:
       proc.stdout.on('data', bufHandler('stdout'));
       proc.stdout.on('close', () => { (stdoutCompleted! as Subject<boolean>).next(true); (stdoutCompleted! as Subject<boolean>).complete(); });
     } else {
-      stdoutCompleted = Observable.of(true);
+      stdoutCompleted = of(true);
     }
 
     if (proc.stderr) {
@@ -253,7 +246,7 @@ export function spawn<T = string>(exe: string, params: Array<string> = [], opts:
       proc.stderr.on('data', bufHandler('stderr'));
       proc.stderr.on('close', () => { (stderrCompleted! as Subject<boolean>).next(true); (stderrCompleted! as Subject<boolean>).complete(); });
     } else {
-      stderrCompleted = Observable.of(true);
+      stderrCompleted = of(true);
     }
 
     proc.on('error', (e: Error) => {
@@ -263,8 +256,8 @@ export function spawn<T = string>(exe: string, params: Array<string> = [], opts:
 
     proc.on('close', (code: number) => {
       noClose = true;
-      let pipesClosed = Observable.merge(stdoutCompleted!, stderrCompleted!)
-        .reduce((acc) => acc, true);
+      let pipesClosed = merge(stdoutCompleted!, stderrCompleted!)
+        .pipe(reduce((acc) => acc, true));
 
       if (code === 0) {
         pipesClosed.subscribe(() => subj.complete());
@@ -276,7 +269,7 @@ export function spawn<T = string>(exe: string, params: Array<string> = [], opts:
     ret.add(new Subscription(() => {
       if (noClose) {
         return;
-      };
+      }
 
       d(`Killing process: ${cmd} ${args.join()}`);
       if (opts.jobber) {
@@ -291,7 +284,7 @@ export function spawn<T = string>(exe: string, params: Array<string> = [], opts:
     return ret;
   });
 
-  return opts.split ? spawnObs : spawnObs.pluck('text');
+  return opts.split ? spawnObs : spawnObs.pipe(pluck('text'));
 }
 
 function wrapObservableInPromise<T>(obs: Observable<T>) {

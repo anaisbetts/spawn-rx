@@ -3,7 +3,7 @@ import './support';
 
 import { spawn, spawnPromise, spawnDetachedPromise } from '../src/index';
 
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 
 const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -86,14 +86,14 @@ describe('The spawn method', function() {
   });
 
   it('should croak if stdin is provided but stdio.stdin is disabled', async function() {
-    let stdin = Observable.of('a');
+    let stdin = of('a');
     let rxSpawn: Observable<{ source: any, text: any }>  = spawn('marked', [], {split: true, stdin: stdin, stdio: ['ignore', null, null]});
     let result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.error).to.be.an('error');
   });
 
   it('should subscribe to provided stdin', async function() {
-    let stdin = Observable.of('a');
+    let stdin = of('a');
     let rxSpawn: Observable<{ source: any, text: any }> = spawn('marked', [], {split: true, stdin: stdin});
     let result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.stdout.trim()).to.be.equal('<p>a</p>');
