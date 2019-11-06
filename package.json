@@ -42,7 +42,7 @@
     "esdoc": "^1.1.0",
     "esdoc-es7-plugin": "0.0.3",
     "esdoc-plugin-async-to-sync": "^0.5.0",
-    "marked": "^0.5.0",
+    "marked": "^0.6.1",
     "mocha": "^4.0.0",
     "npm-run-all": "^4.0.2",
     "ts-node": "^3.3.0",
