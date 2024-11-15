@@ -321,9 +321,12 @@ export function spawn<T = string>(
         if (code === 0) {
           pipesClosed.subscribe(() => subj.complete());
         } else {
-          pipesClosed.subscribe(() =>
-            subj.error(new Error(`Failed with exit code: ${code}`))
-          );
+          pipesClosed.subscribe(() => {
+            const e: any = new Error(`Failed with exit code: ${code}`);
+            e.exitCode = code;
+
+            subj.error(e);
+          });
         }
       });
 
