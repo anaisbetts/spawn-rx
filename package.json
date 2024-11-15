@@ -12,20 +12,20 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/paulcbetts/spawn-rx"
+    "url": "https://github.com/anaisbetts/spawn-rx"
   },
   "keywords": [
     "spawn",
     "rx"
   ],
-  "author": "Paul Betts <paul@paulbetts.org>",
+  "author": "Anaïs Betts <anais@anaisbetts.org>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/paulcbetts/spawn-rx/issues"
+    "url": "https://github.com/anaisbetts/spawn-rx/issues"
   },
   "main": "lib/src/index.js",
   "typings": "lib/src/index.d.ts",
-  "homepage": "https://github.com/paulcbetts/spawn-rx",
+  "homepage": "https://github.com/anaisbetts/spawn-rx",
   "dependencies": {
     "debug": "^2.5.1",
     "lodash.assign": "^4.2.0",
