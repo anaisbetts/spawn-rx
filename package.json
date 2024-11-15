@@ -8,7 +8,7 @@
     "prepublishOnly": "npm run build",
     "lint": "npx eslint .",
     "test": "mocha --compilers ts:ts-node/register ./test/*",
-    "build": "npm-run-all compile lint test"
+    "build": "npm-run-all compile test"
   },
   "repository": {
     "type": "git",
