@@ -1,24 +1,18 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as path from "path";
 import * as net from "net";
 import * as sfs from "fs";
 import * as assign from "lodash.assign";
 
-import {
-  Observable,
-  Observer,
-  Subscription,
-  AsyncSubject,
-  Subject,
-  of,
-  merge,
-} from "rxjs";
+import type { Observer, Subject } from "rxjs";
+import { Observable, Subscription, AsyncSubject, of, merge } from "rxjs";
 import { map, reduce } from "rxjs/operators";
-import * as childProcess from "child_process";
+import { spawn as spawnOg } from "child_process";
+import Debug from "debug";
 
-const spawnOg: typeof childProcess.spawn = require("child_process").spawn; //tslint:disable-line:no-var-requires
 const isWindows = process.platform === "win32";
 
-const d = require("debug")("spawn-rx"); //tslint:disable-line:no-var-requires
+const d = Debug("spawn-rx"); // tslint:disable-line:no-var-requires
 
 /**
  * stat a file but don't throw if it doesn't exist
@@ -31,7 +25,7 @@ const d = require("debug")("spawn-rx"); //tslint:disable-line:no-var-requires
 function statSyncNoException(file: string): sfs.Stats | null {
   try {
     return sfs.statSync(file);
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -50,20 +44,20 @@ function runDownPath(exe: string): string {
   // Posix does
 
   // Files with any directory path don't get this applied
-  if (exe.match(/[\\\/]/)) {
+  if (exe.match(/[\\/]/)) {
     d("Path has slash in directory, bailing");
     return exe;
   }
 
-  let target = path.join(".", exe);
+  const target = path.join(".", exe);
   if (statSyncNoException(target)) {
     d(`Found executable in currect directory: ${target}`);
     return target;
   }
 
-  let haystack = process.env.PATH!.split(isWindows ? ";" : ":");
-  for (let p of haystack) {
-    let needle = path.join(p, exe);
+  const haystack = process.env.PATH!.split(isWindows ? ";" : ":");
+  for (const p of haystack) {
+    const needle = path.join(p, exe);
     if (statSyncNoException(needle)) {
       return needle;
     }
@@ -91,7 +85,7 @@ function runDownPath(exe: string): string {
  */
 export function findActualExecutable(
   exe: string,
-  args: Array<string>
+  args: Array<string>,
 ): {
   cmd: string;
   args: Array<string>;
@@ -106,8 +100,8 @@ export function findActualExecutable(
     // a shell would normally convert that to surf-build.cmd, but since it's passed
     // in as an argument, it doesn't happen
     const possibleExts = [".exe", ".bat", ".cmd", ".ps1"];
-    for (let ext of possibleExts) {
-      let possibleFullPath = runDownPath(`${exe}${ext}`);
+    for (const ext of possibleExts) {
+      const possibleFullPath = runDownPath(`${exe}${ext}`);
 
       if (sfs.existsSync(possibleFullPath)) {
         return findActualExecutable(possibleFullPath, args);
@@ -116,14 +110,14 @@ export function findActualExecutable(
   }
 
   if (exe.match(/\.ps1$/i)) {
-    let cmd = path.join(
+    const cmd = path.join(
       process.env.SYSTEMROOT!,
       "System32",
       "WindowsPowerShell",
       "v1.0",
-      "PowerShell.exe"
+      "PowerShell.exe",
     );
-    let psargs = [
+    const psargs = [
       "-ExecutionPolicy",
       "Unrestricted",
       "-NoLogo",
@@ -136,15 +130,15 @@ export function findActualExecutable(
   }
 
   if (exe.match(/\.(bat|cmd)$/i)) {
-    let cmd = path.join(process.env.SYSTEMROOT!, "System32", "cmd.exe");
-    let cmdArgs = ["/C", exe, ...args];
+    const cmd = path.join(process.env.SYSTEMROOT!, "System32", "cmd.exe");
+    const cmdArgs = ["/C", exe, ...args];
 
     return { cmd: cmd, args: cmdArgs };
   }
 
   if (exe.match(/\.(js)$/i)) {
-    let cmd = process.execPath;
-    let nodeArgs = [exe];
+    const cmd = process.execPath;
+    const nodeArgs = [exe];
 
     return { cmd: cmd, args: nodeArgs.concat(args) };
   }
@@ -173,7 +167,7 @@ export function findActualExecutable(
 export function spawnDetached(
   exe: string,
   params: Array<string>,
-  opts: any = null
+  opts: any = null,
 ): Observable<string> {
   const { cmd, args } = findActualExecutable(exe, params);
 
@@ -183,15 +177,15 @@ export function spawnDetached(
 
   const newParams = [cmd].concat(args);
 
-  let target = path.join(
+  const target = path.join(
     __dirname,
     "..",
     "..",
     "vendor",
     "jobber",
-    "Jobber.exe"
+    "Jobber.exe",
   );
-  let options = assign({}, opts || {}, { detached: true, jobber: true });
+  const options = assign({}, opts || {}, { detached: true, jobber: true });
 
   d(`spawnDetached: ${target}, ${newParams}`);
   return spawn(target, newParams, options);
@@ -216,24 +210,25 @@ export function spawnDetached(
 export function spawn<T = string>(
   exe: string,
   params: Array<string> = [],
-  opts: any = null
+  opts: any = null,
 ): Observable<T> {
   opts = opts || {};
-  let spawnObs = Observable.create(
+  const spawnObs = Observable.create(
     (
       subj: Observer<{
         source: any;
         text: any;
-      }>
+      }>,
     ) => {
-      let { stdin, ...optsWithoutStdIn } = opts;
-      let { cmd, args } = findActualExecutable(exe, params);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { _, ...optsWithoutStdIn } = opts;
+      const { cmd, args } = findActualExecutable(exe, params);
       d(
         `spawning process: ${cmd} ${args.join()}, ${JSON.stringify(
-          optsWithoutStdIn
-        )}`
+          optsWithoutStdIn,
+        )}`,
       );
-      let origOpts = assign({}, optsWithoutStdIn);
+      const origOpts = assign({}, optsWithoutStdIn);
       if ("jobber" in origOpts) {
         delete origOpts.jobber;
       }
@@ -243,7 +238,7 @@ export function spawn<T = string>(
 
       const proc = spawnOg(cmd, args, origOpts);
 
-      let bufHandler = (source: string) => (b: string | Buffer) => {
+      const bufHandler = (source: string) => (b: string | Buffer) => {
         if (b.length < 1) {
           return;
         }
@@ -254,14 +249,14 @@ export function spawn<T = string>(
           } else {
             chunk = b.toString(origOpts.encoding || "utf8");
           }
-        } catch (e) {
+        } catch {
           chunk = `<< Lost chunk of process output for ${exe} - length was ${b.length}>>`;
         }
 
         subj.next({ source: source, text: chunk });
       };
 
-      let ret = new Subscription();
+      const ret = new Subscription();
 
       if (opts.stdin) {
         if (proc.stdin) {
@@ -269,14 +264,14 @@ export function spawn<T = string>(
             opts.stdin.subscribe(
               (x: any) => proc.stdin.write(x),
               subj.error.bind(subj),
-              () => proc.stdin.end()
-            )
+              () => proc.stdin.end(),
+            ),
           );
         } else {
           subj.error(
             new Error(
-              `opts.stdio conflicts with provided spawn opts.stdin observable, 'pipe' is required`
-            )
+              `opts.stdio conflicts with provided spawn opts.stdin observable, 'pipe' is required`,
+            ),
           );
         }
       }
@@ -314,8 +309,8 @@ export function spawn<T = string>(
 
       proc.on("close", (code: number) => {
         noClose = true;
-        let pipesClosed = merge(stdoutCompleted!, stderrCompleted!).pipe(
-          reduce((acc) => acc, true)
+        const pipesClosed = merge(stdoutCompleted!, stderrCompleted!).pipe(
+          reduce((acc) => acc, true),
         );
 
         if (code === 0) {
@@ -344,11 +339,11 @@ export function spawn<T = string>(
           } else {
             proc.kill();
           }
-        })
+        }),
       );
 
       return ret;
-    }
+    },
   );
 
   return opts.split ? spawnObs : spawnObs.pipe(map((x: any) => x?.text));
@@ -361,7 +356,7 @@ function wrapObservableInPromise<T>(obs: Observable<T>) {
     obs.subscribe(
       (x) => (out += x),
       (e) => rej(new Error(`${out}\n${e.message}`)),
-      () => res(out)
+      () => res(out),
     );
   });
 }
@@ -383,7 +378,7 @@ function wrapObservableInPromise<T>(obs: Observable<T>) {
 export function spawnDetachedPromise(
   exe: string,
   params: Array<string>,
-  opts: any = null
+  opts: any = null,
 ): Promise<string> {
   return wrapObservableInPromise<string>(spawnDetached(exe, params, opts));
 }
@@ -404,7 +399,7 @@ export function spawnDetachedPromise(
 export function spawnPromise(
   exe: string,
   params: Array<string>,
-  opts: any = null
+  opts: any = null,
 ): Promise<string> {
   return wrapObservableInPromise<string>(spawn(exe, params, opts));
 }

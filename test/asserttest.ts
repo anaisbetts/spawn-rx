@@ -1,5 +1,6 @@
-import { expect } from 'chai';
-import './support';
+/* eslint-disable @typescript-eslint/no-unused-expressions */
+import { expect } from "chai";
+import "./support";
 
 function delay(ms: number) {
   return new Promise((resolve) => {
@@ -7,8 +8,8 @@ function delay(ms: number) {
   });
 }
 
-describe('The test runner', function () {
-  it('should pass this test', async function () {
+describe("The test runner", function () {
+  it("should pass this test", async function () {
     await delay(1000);
     expect(true).to.be.ok;
   });

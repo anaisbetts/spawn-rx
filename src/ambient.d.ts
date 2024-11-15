@@ -1,1 +1,1 @@
-declare module 'lodash.assign';
+declare module "lodash.assign";

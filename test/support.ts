@@ -1,5 +1,6 @@
-import * as chai from 'chai';
-import * as chaiAsPromised from 'chai-as-promised';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import * as chai from "chai";
+import * as chaiAsPromised from "chai-as-promised";
 
 declare const global: any;
 
@@ -11,4 +12,4 @@ global.chaiAsPromised = chaiAsPromised;
 global.expect = chai.expect;
 global.AssertionError = chai.AssertionError;
 global.assert = chai.assert;
-global.Assertion = (chai as any).Assertion; //'Assertion' is not existing?
+global.Assertion = (chai as any).Assertion; // 'Assertion' is not existing?
