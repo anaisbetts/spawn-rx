@@ -161,13 +161,13 @@ export type OutputLine = {
 
 export function spawnDetached(
   exe: string,
-  params?: string[],
-  opts?: SpawnOptions & SpawnRxExtras & { split: true },
+  params: string[],
+  opts: SpawnOptions & SpawnRxExtras & { split: true },
 ): Observable<OutputLine>;
 
 export function spawnDetached(
   exe: string,
-  params?: string[],
+  params: string[],
   opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
 ): Observable<string>;
 
@@ -190,7 +190,7 @@ export function spawnDetached(
  */
 export function spawnDetached(
   exe: string,
-  params?: string[],
+  params: string[],
   opts?: SpawnOptions & SpawnRxExtras,
 ): Observable<string> | Observable<OutputLine> {
   const { cmd, args } = findActualExecutable(exe, params ?? []);
@@ -217,13 +217,13 @@ export function spawnDetached(
 
 export function spawn(
   exe: string,
-  params?: string[],
-  opts?: SpawnOptions & SpawnRxExtras & { split: true },
+  params: string[],
+  opts: SpawnOptions & SpawnRxExtras & { split: true },
 ): Observable<OutputLine>;
 
 export function spawn(
   exe: string,
-  params?: string[],
+  params: string[],
   opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
 ): Observable<string>;
 
@@ -244,7 +244,7 @@ export function spawn(
  */
 export function spawn(
   exe: string,
-  params: string[] = [],
+  params: string[],
   opts?: SpawnOptions & SpawnRxExtras,
 ): Observable<string> | Observable<OutputLine> {
   opts = opts ?? {};
@@ -399,7 +399,7 @@ function wrapObservableInSplitPromise(obs: Observable<OutputLine>) {
 export function spawnDetachedPromise(
   exe: string,
   params: Array<string>,
-  opts?: SpawnOptions & SpawnRxExtras & { split: true },
+  opts: SpawnOptions & SpawnRxExtras & { split: true },
 ): Promise<[string, string]>;
 
 export function spawnDetachedPromise(
@@ -441,13 +441,13 @@ export function spawnDetachedPromise(
 export function spawnPromise(
   exe: string,
   params: Array<string>,
-  opts?: SpawnOptions & SpawnRxExtras & { split: true },
+  opts: SpawnOptions & SpawnRxExtras & { split: true },
 ): Promise<[string, string]>;
 
 export function spawnPromise(
   exe: string,
   params: Array<string>,
-  opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
+  opts?: SpawnOptions & SpawnRxExtras
 ): Promise<string>;
 
 /**
@@ -467,7 +467,7 @@ export function spawnPromise(
   exe: string,
   params: Array<string>,
   opts?: SpawnOptions & SpawnRxExtras,
-): Promise<string | [string, string]> {
+): Promise<string> | Promise<[string, string]> {
   if (opts?.split) {
     return wrapObservableInSplitPromise(
       spawn(exe, params, { ...(opts ?? {}), split: true }),
