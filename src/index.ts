@@ -7,7 +7,7 @@ import * as assign from "lodash.assign";
 import type { Observer, Subject } from "rxjs";
 import { Observable, Subscription, AsyncSubject, of, merge } from "rxjs";
 import { map, reduce } from "rxjs/operators";
-import { spawn as spawnOg } from "child_process";
+import { spawn as spawnOg, SpawnOptions } from "child_process";
 import Debug from "debug";
 
 const isWindows = process.platform === "win32";
@@ -85,10 +85,10 @@ function runDownPath(exe: string): string {
  */
 export function findActualExecutable(
   exe: string,
-  args: Array<string>,
+  args: string[],
 ): {
   cmd: string;
-  args: Array<string>;
+  args: string[];
 } {
   // POSIX can just execute scripts directly, no need for silly goosery
   if (process.platform !== "win32") {
@@ -147,6 +147,30 @@ export function findActualExecutable(
   return { cmd: exe, args: args };
 }
 
+export type SpawnRxExtras = {
+  stdin?: Observable<string>;
+  split?: boolean;
+  jobber?: boolean;
+  encoding?: BufferEncoding;
+};
+
+export type OutputLine = {
+  source: "stdout" | "stderr";
+  text: string;
+};
+
+export function spawnDetached(
+  exe: string,
+  params?: string[],
+  opts?: SpawnOptions & SpawnRxExtras & { split: true },
+): Observable<OutputLine>;
+
+export function spawnDetached(
+  exe: string,
+  params?: string[],
+  opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
+): Observable<string>;
+
 /**
  * Spawns a process but detached from the current process. The process is put
  * into its own Process Group that can be killed by unsubscribing from the
@@ -166,10 +190,10 @@ export function findActualExecutable(
  */
 export function spawnDetached(
   exe: string,
-  params: Array<string>,
-  opts: any = null,
-): Observable<string> {
-  const { cmd, args } = findActualExecutable(exe, params);
+  params?: string[],
+  opts?: SpawnOptions & SpawnRxExtras,
+): Observable<string> | Observable<OutputLine> {
+  const { cmd, args } = findActualExecutable(exe, params ?? []);
 
   if (!isWindows) {
     return spawn(cmd, args, assign({}, opts || {}, { detached: true }));
@@ -191,6 +215,18 @@ export function spawnDetached(
   return spawn(target, newParams, options);
 }
 
+export function spawn(
+  exe: string,
+  params?: string[],
+  opts?: SpawnOptions & SpawnRxExtras & { split: true },
+): Observable<OutputLine>;
+
+export function spawn(
+  exe: string,
+  params?: string[],
+  opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
+): Observable<string>;
+
 /**
  * Spawns a process attached as a child of the current process.
  *
@@ -206,55 +242,41 @@ export function spawnDetached(
  *                                    process terminates with a non-zero value,
  *                                    the Observable will terminate with onError.
  */
-
-export function spawn<T = string>(
+export function spawn(
   exe: string,
-  params: Array<string> = [],
-  opts: any = null,
-): Observable<T> {
-  opts = opts || {};
-  const spawnObs = Observable.create(
-    (
-      subj: Observer<{
-        source: any;
-        text: any;
-      }>,
-    ) => {
+  params: string[] = [],
+  opts?: SpawnOptions & SpawnRxExtras,
+): Observable<string> | Observable<OutputLine> {
+  opts = opts ?? {};
+  const spawnObs: Observable<OutputLine> = Observable.create(
+    (subj: Observer<OutputLine>) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { _, ...optsWithoutStdIn } = opts;
+      const { stdin, jobber, split, encoding, ...spawnOpts } = opts;
       const { cmd, args } = findActualExecutable(exe, params);
       d(
-        `spawning process: ${cmd} ${args.join()}, ${JSON.stringify(
-          optsWithoutStdIn,
-        )}`,
+        `spawning process: ${cmd} ${args.join()}, ${JSON.stringify(spawnOpts)}`,
       );
-      const origOpts = assign({}, optsWithoutStdIn);
-      if ("jobber" in origOpts) {
-        delete origOpts.jobber;
-      }
-      if ("split" in origOpts) {
-        delete origOpts.split;
-      }
 
-      const proc = spawnOg(cmd, args, origOpts);
+      const proc = spawnOg(cmd, args, spawnOpts);
 
-      const bufHandler = (source: string) => (b: string | Buffer) => {
-        if (b.length < 1) {
-          return;
-        }
-        let chunk = "<< String sent back was too long >>";
-        try {
-          if (typeof b === "string") {
-            chunk = b.toString();
-          } else {
-            chunk = b.toString(origOpts.encoding || "utf8");
+      const bufHandler =
+        (source: "stdout" | "stderr") => (b: string | Buffer) => {
+          if (b.length < 1) {
+            return;
           }
-        } catch {
-          chunk = `<< Lost chunk of process output for ${exe} - length was ${b.length}>>`;
-        }
+          let chunk = "<< String sent back was too long >>";
+          try {
+            if (typeof b === "string") {
+              chunk = b.toString();
+            } else {
+              chunk = b.toString(encoding || "utf8");
+            }
+          } catch {
+            chunk = `<< Lost chunk of process output for ${exe} - length was ${b.length}>>`;
+          }
 
-        subj.next({ source: source, text: chunk });
-      };
+          subj.next({ source: source, text: chunk });
+        };
 
       const ret = new Subscription();
 
@@ -349,7 +371,7 @@ export function spawn<T = string>(
   return opts.split ? spawnObs : spawnObs.pipe(map((x: any) => x?.text));
 }
 
-function wrapObservableInPromise<T>(obs: Observable<T>) {
+function wrapObservableInPromise(obs: Observable<string>) {
   return new Promise<string>((res, rej) => {
     let out = "";
 
@@ -377,10 +399,12 @@ function wrapObservableInPromise<T>(obs: Observable<T>) {
  */
 export function spawnDetachedPromise(
   exe: string,
-  params: Array<string>,
-  opts: any = null,
+  params: string[],
+  opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
 ): Promise<string> {
-  return wrapObservableInPromise<string>(spawnDetached(exe, params, opts));
+  return wrapObservableInPromise(
+    spawnDetached(exe, params, { ...(opts ?? {}), split: false }),
+  );
 }
 
 /**
@@ -399,7 +423,9 @@ export function spawnDetachedPromise(
 export function spawnPromise(
   exe: string,
   params: Array<string>,
-  opts: any = null,
+  opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
 ): Promise<string> {
-  return wrapObservableInPromise<string>(spawn(exe, params, opts));
+  return wrapObservableInPromise(
+    spawn(exe, params, { ...(opts ?? {}), split: false }),
+  );
 }
