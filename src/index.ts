@@ -464,9 +464,12 @@ function wrapObservableInSplitPromise(obs: Observable<OutputLine>) {
       next: (x) => (x.source === "stdout" ? (out += x.text) : (err += x.text)),
       error: (e) => {
         const err: any = new Error(`${out}\n${e.message}`);
+
         if ("exitCode" in e) {
           err.exitCode = e.exitCode;
           err.code = e.exitCode;
+          err.stdout = out;
+          err.stderr = err;
         }
         rej(err);
       },
