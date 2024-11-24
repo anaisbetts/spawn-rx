@@ -18,6 +18,20 @@ describe("The spawnPromise method", function () {
     const result = await spawnPromise("uuid", []);
     expect(result.match(uuidRegex)).to.be.ok;
   });
+
+  it("should split stdout and stderr when we call uuid", async function () {
+    // NB: Since we get run via npm run test, we know that npm bins are in our
+    // PATH.
+    const result = await spawnPromise("uuid", [], { split: true});
+    expect(result[0].match(uuidRegex)).to.be.ok;
+  });
+
+  it("should not stdout and stderr when we call uuid with split false", async function () {
+    // NB: Since we get run via npm run test, we know that npm bins are in our
+    // PATH.
+    const result = await spawnPromise("uuid", [], { split: false});
+    expect(result.match(uuidRegex)).to.be.ok;
+  });
 });
 
 describe("The spawnDetachedPromise method", function () {
