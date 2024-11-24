@@ -77,11 +77,11 @@ function runDownPath(exe: string): string {
  * also doesn't do, unlike on POSIX.
  *
  * @param  {string} exe           The executable to run
- * @param  {Array<string>} args   The arguments to run
+ * @param  {string[]} args   The arguments to run
  *
  * @return {Object}               The cmd and args to run
  * @property {string} cmd         The command to pass to spawn
- * @property {Array<string>} args The arguments to pass to spawn
+ * @property {string[]} args The arguments to pass to spawn
  */
 export function findActualExecutable(
   exe: string,
@@ -177,7 +177,7 @@ export function spawnDetached(
  * return Observable.
  *
  * @param  {string} exe               The executable to run
- * @param  {Array<string>} params     The parameters to pass to the child
+ * @param  {string[]} params     The parameters to pass to the child
  * @param  {Object} opts              Options to pass to spawn.
  *
  * @return {Observable<string>}       Returns an Observable that when subscribed
@@ -231,7 +231,7 @@ export function spawn(
  * Spawns a process attached as a child of the current process.
  *
  * @param  {string} exe               The executable to run
- * @param  {Array<string>} params     The parameters to pass to the child
+ * @param  {string[]} params     The parameters to pass to the child
  * @param  {Object} opts              Options to pass to spawn.
  *
  * @return {Observable<string>}       Returns an Observable that when subscribed
@@ -398,13 +398,13 @@ function wrapObservableInSplitPromise(obs: Observable<OutputLine>) {
 
 export function spawnDetachedPromise(
   exe: string,
-  params: Array<string>,
+  params: string[],
   opts: SpawnOptions & SpawnRxExtras & { split: true },
 ): Promise<[string, string]>;
 
 export function spawnDetachedPromise(
   exe: string,
-  params: Array<string>,
+  params: string[],
   opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
 ): Promise<string>;
 
@@ -413,7 +413,7 @@ export function spawnDetachedPromise(
  * into its own Process Group.
  *
  * @param  {string} exe               The executable to run
- * @param  {Array<string>} params     The parameters to pass to the child
+ * @param  {string[]} params     The parameters to pass to the child
  * @param  {Object} opts              Options to pass to spawn.
  *
  * @return {Promise<string>}       Returns an Promise that represents a detached
@@ -424,7 +424,7 @@ export function spawnDetachedPromise(
  */
 export function spawnDetachedPromise(
   exe: string,
-  params: Array<string>,
+  params: string[],
   opts?: SpawnOptions & SpawnRxExtras,
 ): Promise<string | [string, string]> {
   if (opts?.split) {
@@ -440,21 +440,21 @@ export function spawnDetachedPromise(
 
 export function spawnPromise(
   exe: string,
-  params: Array<string>,
+  params: string[],
   opts: SpawnOptions & SpawnRxExtras & { split: true },
 ): Promise<[string, string]>;
 
 export function spawnPromise(
   exe: string,
-  params: Array<string>,
-  opts?: SpawnOptions & SpawnRxExtras
+  params: string[],
+  opts?: SpawnOptions & SpawnRxExtras,
 ): Promise<string>;
 
 /**
  * Spawns a process as a child process.
  *
  * @param  {string} exe               The executable to run
- * @param  {Array<string>} params     The parameters to pass to the child
+ * @param  {string[]} params     The parameters to pass to the child
  * @param  {Object} opts              Options to pass to spawn.
  *
  * @return {Promise<string>}       Returns an Promise that represents a child
@@ -465,7 +465,7 @@ export function spawnPromise(
  */
 export function spawnPromise(
   exe: string,
-  params: Array<string>,
+  params: string[],
   opts?: SpawnOptions & SpawnRxExtras,
 ): Promise<string> | Promise<[string, string]> {
   if (opts?.split) {
