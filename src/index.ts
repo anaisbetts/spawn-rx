@@ -463,15 +463,15 @@ function wrapObservableInSplitPromise(obs: Observable<OutputLine>) {
     obs.subscribe({
       next: (x) => (x.source === "stdout" ? (out += x.text) : (err += x.text)),
       error: (e) => {
-        const err: any = new Error(`${out}\n${e.message}`);
+        const error: any = new Error(`${out}\n${e.message}`);
 
         if ("exitCode" in e) {
-          err.exitCode = e.exitCode;
-          err.code = e.exitCode;
-          err.stdout = out;
-          err.stderr = err;
+          error.exitCode = e.exitCode;
+          error.code = e.exitCode;
+          error.stdout = out;
+          error.stderr = err;
         }
-        rej(err);
+        rej(error);
       },
       complete: () => res([out, err]),
     });
