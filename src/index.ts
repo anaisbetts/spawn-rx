@@ -248,7 +248,7 @@ export function spawn(
   opts?: SpawnOptions & SpawnRxExtras,
 ): Observable<string> | Observable<OutputLine> {
   opts = opts ?? {};
-  const spawnObs: Observable<OutputLine> = Observable.create(
+  const spawnObs: Observable<OutputLine> = new Observable(
     (subj: Observer<OutputLine>) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { stdin, jobber, split, encoding, ...spawnOpts } = opts;
@@ -283,11 +283,11 @@ export function spawn(
       if (opts.stdin) {
         if (proc.stdin) {
           ret.add(
-            opts.stdin.subscribe(
-              (x: any) => proc.stdin.write(x),
-              subj.error.bind(subj),
-              () => proc.stdin.end(),
-            ),
+            opts.stdin.subscribe({
+              next: (x: any) => proc.stdin.write(x),
+              error: subj.error.bind(subj),
+              complete: () => proc.stdin.end(),
+            }),
           );
         } else {
           subj.error(
@@ -375,13 +375,38 @@ function wrapObservableInPromise(obs: Observable<string>) {
   return new Promise<string>((res, rej) => {
     let out = "";
 
-    obs.subscribe(
-      (x) => (out += x),
-      (e) => rej(new Error(`${out}\n${e.message}`)),
-      () => res(out),
-    );
+    obs.subscribe({
+      next: (x) => (out += x),
+      error: (e) => rej(new Error(`${out}\n${e.message}`)),
+      complete: () => res(out),
+    });
   });
 }
+
+function wrapObservableInSplitPromise(obs: Observable<OutputLine>) {
+  return new Promise<[string, string]>((res, rej) => {
+    let out = "";
+    let err = "";
+
+    obs.subscribe({
+      next: (x) => (x.source === "stdout" ? (out += x.text) : (err += x.text)),
+      error: (e) => rej(new Error(`${out}\n${e.message}`)),
+      complete: () => res([out, err]),
+    });
+  });
+}
+
+export function spawnDetachedPromise(
+  exe: string,
+  params: Array<string>,
+  opts?: SpawnOptions & SpawnRxExtras & { split: true },
+): Promise<[string, string]>;
+
+export function spawnDetachedPromise(
+  exe: string,
+  params: Array<string>,
+  opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
+): Promise<string>;
 
 /**
  * Spawns a process but detached from the current process. The process is put
@@ -399,13 +424,31 @@ function wrapObservableInPromise(obs: Observable<string>) {
  */
 export function spawnDetachedPromise(
   exe: string,
-  params: string[],
-  opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
-): Promise<string> {
-  return wrapObservableInPromise(
-    spawnDetached(exe, params, { ...(opts ?? {}), split: false }),
-  );
+  params: Array<string>,
+  opts?: SpawnOptions & SpawnRxExtras,
+): Promise<string | [string, string]> {
+  if (opts?.split) {
+    return wrapObservableInSplitPromise(
+      spawnDetached(exe, params, { ...(opts ?? {}), split: true }),
+    );
+  } else {
+    return wrapObservableInPromise(
+      spawnDetached(exe, params, { ...(opts ?? {}), split: false }),
+    );
+  }
 }
+
+export function spawnPromise(
+  exe: string,
+  params: Array<string>,
+  opts?: SpawnOptions & SpawnRxExtras & { split: true },
+): Promise<[string, string]>;
+
+export function spawnPromise(
+  exe: string,
+  params: Array<string>,
+  opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
+): Promise<string>;
 
 /**
  * Spawns a process as a child process.
@@ -423,9 +466,15 @@ export function spawnDetachedPromise(
 export function spawnPromise(
   exe: string,
   params: Array<string>,
-  opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
-): Promise<string> {
-  return wrapObservableInPromise(
-    spawn(exe, params, { ...(opts ?? {}), split: false }),
-  );
+  opts?: SpawnOptions & SpawnRxExtras,
+): Promise<string | [string, string]> {
+  if (opts?.split) {
+    return wrapObservableInSplitPromise(
+      spawn(exe, params, { ...(opts ?? {}), split: true }),
+    );
+  } else {
+    return wrapObservableInPromise(
+      spawn(exe, params, { ...(opts ?? {}), split: false }),
+    );
+  }
 }
