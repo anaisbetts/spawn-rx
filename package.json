@@ -1,6 +1,6 @@
 {
   "name": "spawn-rx",
-  "version": "5.0.3",
+  "version": "5.0.4",
   "description": "An Rx-version of child_process.spawn",
   "scripts": {
     "doc": "echo \"esdoc may not work correctly\" && esdoc -c ./esdoc.json",
