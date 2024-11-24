@@ -2,7 +2,6 @@
 import * as path from "path";
 import * as net from "net";
 import * as sfs from "fs";
-import * as assign from "lodash.assign";
 
 import type { Observer, Subject } from "rxjs";
 import { Observable, Subscription, AsyncSubject, of, merge } from "rxjs";
@@ -230,7 +229,11 @@ export function spawnDetached(
   const { cmd, args } = findActualExecutable(exe, params ?? []);
 
   if (!isWindows) {
-    return spawn(cmd, args, assign({}, opts || {}, { detached: true }));
+    return spawn(
+      cmd,
+      args,
+      Object.assign({}, opts || {}, { detached: true }) as any,
+    );
   }
 
   const newParams = [cmd].concat(args);
@@ -243,10 +246,13 @@ export function spawnDetached(
     "jobber",
     "Jobber.exe",
   );
-  const options = assign({}, opts || {}, { detached: true, jobber: true });
+  const options = Object.assign({}, opts || {}, {
+    detached: true,
+    jobber: true,
+  });
 
   d(`spawnDetached: ${target}, ${newParams}`);
-  return spawn(target, newParams, options);
+  return spawn(target, newParams, options as any);
 }
 
 /**
