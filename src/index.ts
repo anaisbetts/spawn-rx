@@ -159,7 +159,6 @@ export type OutputLine = {
   text: string;
 };
 
-
 /**
  * Spawns a process but detached from the current process. The process is put
  * into its own Process Group that can be killed by unsubscribing from the
@@ -406,6 +405,7 @@ export function spawn(
           pipesClosed.subscribe(() => {
             const e: any = new Error(`Failed with exit code: ${code}`);
             e.exitCode = code;
+            e.code = code;
 
             subj.error(e);
           });
@@ -442,7 +442,14 @@ function wrapObservableInPromise(obs: Observable<string>) {
 
     obs.subscribe({
       next: (x) => (out += x),
-      error: (e) => rej(new Error(`${out}\n${e.message}`)),
+      error: (e) => {
+        const err: any = new Error(`${out}\n${e.message}`);
+        if ("exitCode" in e) {
+          err.exitCode = e.exitCode;
+          err.code = e.exitCode;
+        }
+        rej(err);
+      },
       complete: () => res(out),
     });
   });
@@ -455,7 +462,14 @@ function wrapObservableInSplitPromise(obs: Observable<OutputLine>) {
 
     obs.subscribe({
       next: (x) => (x.source === "stdout" ? (out += x.text) : (err += x.text)),
-      error: (e) => rej(new Error(`${out}\n${e.message}`)),
+      error: (e) => {
+        const err: any = new Error(`${out}\n${e.message}`);
+        if ("exitCode" in e) {
+          err.exitCode = e.exitCode;
+          err.code = e.exitCode;
+        }
+        rej(err);
+      },
       complete: () => res([out, err]),
     });
   });

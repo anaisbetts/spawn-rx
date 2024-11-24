@@ -27,6 +27,17 @@ describe("The spawnPromise method", function () {
     expect(result[1].match(uuidRegex)).to.not.be.ok;
   });
 
+  it("should retur nthe exit code", async function () {
+    // NB: Since we get run via npm run test, we know that npm bins are in our
+    // PATH.
+    try {
+      await spawnPromise("false", [], { split: true });
+      expect(false).to.be.true;
+    } catch (e) {
+      expect(e.code).to.be.equal(1);
+    }
+  });
+
   it("should not stdout and stderr when we call uuid with split false", async function () {
     // NB: Since we get run via npm run test, we know that npm bins are in our
     // PATH.
