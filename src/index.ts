@@ -247,10 +247,11 @@ export function spawnDetached(
     "jobber",
     "Jobber.exe",
   );
-  const options = Object.assign({}, opts || {}, {
+  const options = {
+    ...(opts ?? {}),
     detached: true,
     jobber: true,
-  });
+  };
 
   d(`spawnDetached: ${target}, ${newParams}`);
   return spawn(target, newParams, options as any);
