@@ -148,6 +148,7 @@ export function findActualExecutable(
 
 export type SpawnRxExtras = {
   stdin?: Observable<string>;
+  echoOutput?: boolean;
   split?: boolean;
   jobber?: boolean;
   encoding?: BufferEncoding;
@@ -334,6 +335,11 @@ export function spawn(
           if (b.length < 1) {
             return;
           }
+
+          if (opts.echoOutput) {
+            (source === "stdout" ? process.stdout : process.stderr).write(b);
+          }
+
           let chunk = "<< String sent back was too long >>";
           try {
             if (typeof b === "string") {
