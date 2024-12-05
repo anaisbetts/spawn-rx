@@ -51,14 +51,14 @@ function runDownPath(exe: string): string {
   const target = path.join(".", exe);
   if (statSyncNoException(target)) {
     d(`Found executable in currect directory: ${target}`);
-    return target;
+    return sfs.realpathSync(target);
   }
 
   const haystack = process.env.PATH!.split(isWindows ? ";" : ":");
   for (const p of haystack) {
     const needle = path.join(p, exe);
     if (statSyncNoException(needle)) {
-      return needle;
+      return sfs.realpathSync(needle);
     }
   }
 
