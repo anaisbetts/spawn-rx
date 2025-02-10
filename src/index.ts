@@ -51,14 +51,19 @@ function runDownPath(exe: string): string {
   const target = path.join(".", exe);
   if (statSyncNoException(target)) {
     d(`Found executable in currect directory: ${target}`);
-    return sfs.realpathSync(target);
+
+    // XXX: Some very Odd programs decide to use args[0] as a parameter
+    // to determine what to do, and also symlink themselves, so we can't
+    // use realpathSync here like we used to
+    return target;
   }
 
   const haystack = process.env.PATH!.split(isWindows ? ";" : ":");
   for (const p of haystack) {
     const needle = path.join(p, exe);
     if (statSyncNoException(needle)) {
-      return sfs.realpathSync(needle);
+      // NB: Same deal as above
+      return needle;
     }
   }
 
