@@ -364,11 +364,12 @@ export function spawn(
 
       if (opts.stdin) {
         if (proc.stdin) {
+          const stdin = proc.stdin;
           ret.add(
             opts.stdin.subscribe({
-              next: (x: any) => proc.stdin.write(x),
+              next: (x: any) => stdin.write(x),
               error: subj.error.bind(subj),
-              complete: () => proc.stdin.end(),
+              complete: () => stdin.end(),
             }),
           );
         } else {
