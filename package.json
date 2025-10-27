@@ -6,7 +6,8 @@
     "doc": "echo \"esdoc may not work correctly\" && esdoc -c ./esdoc.json",
     "compile": "tsc -p ./tsconfig.json",
     "prepublishOnly": "bun run build",
-    "lint": "bunx eslint .",
+    "check": "biome check",
+    "fix": "biome check --write --unsafe .",
     "test": "bun test",
     "build": "bun run compile && bun run test"
   },
@@ -31,8 +32,7 @@
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.1.0",
-    "@eslint/js": "^9.14.0",
+    "@biomejs/biome": "^2.3.0",
     "@types/debug": "^4.1.12",
     "@types/node": "^22.0.0",
     "babel-register": "^6.23.0",
@@ -40,13 +40,8 @@
     "esdoc": "^1.1.0",
     "esdoc-es7-plugin": "0.0.3",
     "esdoc-plugin-async-to-sync": "^0.5.0",
-    "eslint": "^9.14.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-prettier": "^5.2.1",
     "marked": "^0.5.0",
-    "prettier": "^3.3.3",
     "typescript": "^5.6.3",
-    "typescript-eslint": "^8.14.0",
     "uuid": "3.0.1"
   }
 }

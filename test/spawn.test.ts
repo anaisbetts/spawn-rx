@@ -1,13 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-import { describe, it, expect } from "bun:test";
-import { spawn, spawnPromise, spawnDetachedPromise } from "../src/index";
-
+import { describe, expect, it } from "bun:test";
 import type { Observable } from "rxjs";
 import { of } from "rxjs";
+import { spawn, spawnDetachedPromise, spawnPromise } from "../src/index";
 
-const uuidRegex =
-  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 describe("The spawnPromise method", () => {
   it("should return a uuid when we call uuid", async () => {
@@ -92,11 +90,7 @@ describe("The spawn method", () => {
 
   it("should return split stderr in a inner tag when called with split", async () => {
     // provide an invalid param to uuid so it complains on stderr
-    const rxSpawn: Observable<{ source: any; text: any }> = spawn(
-      "uuid",
-      ["foo"],
-      { split: true },
-    ) as any;
+    const rxSpawn: Observable<{ source: any; text: any }> = spawn("uuid", ["foo"], { split: true }) as any;
     const result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.stderr.length > 10).toBeTruthy();
     expect(result.stdout).toBe("");
@@ -114,11 +108,10 @@ describe("The spawn method", () => {
   });
 
   it("should ignore stderr if options.stdio = ignore", async () => {
-    const rxSpawn: Observable<{ source: any; text: any }> = spawn(
-      "uuid",
-      ["foo"],
-      { split: true, stdio: [null, null, "ignore"] },
-    );
+    const rxSpawn: Observable<{ source: any; text: any }> = spawn("uuid", ["foo"], {
+      split: true,
+      stdio: [null, null, "ignore"],
+    });
     const result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.stderr).toBe("");
   });
@@ -134,29 +127,21 @@ describe("The spawn method", () => {
 
   it("should croak if stdin is provided but stdio.stdin is disabled", async () => {
     const stdin = of("a");
-    const rxSpawn: Observable<{ source: any; text: any }> = spawn(
-      "marked",
-      [],
-      {
-        split: true,
-        stdin: stdin,
-        stdio: ["ignore", null, null],
-      },
-    );
+    const rxSpawn: Observable<{ source: any; text: any }> = spawn("marked", [], {
+      split: true,
+      stdin: stdin,
+      stdio: ["ignore", null, null],
+    });
     const result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.error).toBeInstanceOf(Error);
   });
 
   it("should subscribe to provided stdin", async () => {
     const stdin = of("a");
-    const rxSpawn: Observable<{ source: any; text: any }> = spawn(
-      "marked",
-      [],
-      {
-        split: true,
-        stdin: stdin,
-      },
-    );
+    const rxSpawn: Observable<{ source: any; text: any }> = spawn("marked", [], {
+      split: true,
+      stdin: stdin,
+    });
     const result = await wrapSplitObservableInPromise(rxSpawn);
     expect(result.stdout.trim()).toBe("<p>a</p>");
   });

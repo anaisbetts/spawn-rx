@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 
 function delay(ms: number) {
   return new Promise((resolve) => {
