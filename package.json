@@ -5,10 +5,10 @@
   "scripts": {
     "doc": "echo \"esdoc may not work correctly\" && esdoc -c ./esdoc.json",
     "compile": "tsc -p ./tsconfig.json",
-    "prepublishOnly": "npm run build",
-    "lint": "npx eslint .",
+    "prepublishOnly": "bun run build",
+    "lint": "bunx eslint .",
     "test": "mocha --compilers ts:ts-node/register ./test/*",
-    "build": "npm-run-all compile test"
+    "build": "bun run compile && bun run test"
   },
   "repository": {
     "type": "git",
