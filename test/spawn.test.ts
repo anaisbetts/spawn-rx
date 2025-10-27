@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-import { expect } from "chai";
-import "./support";
-
+import { describe, it, expect } from "bun:test";
 import { spawn, spawnPromise, spawnDetachedPromise } from "../src/index";
 
 import type { Observable } from "rxjs";
@@ -11,47 +9,47 @@ import { of } from "rxjs";
 const uuidRegex =
   /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
-describe("The spawnPromise method", function () {
-  it("should return a uuid when we call uuid", async function () {
+describe("The spawnPromise method", () => {
+  it("should return a uuid when we call uuid", async () => {
     // NB: Since we get run via npm run test, we know that npm bins are in our
     // PATH.
     const result = await spawnPromise("uuid", []);
-    expect(result.match(uuidRegex)).to.be.ok;
+    expect(result.match(uuidRegex)).toBeTruthy();
   });
 
-  it("should split stdout and stderr when we call uuid", async function () {
+  it("should split stdout and stderr when we call uuid", async () => {
     // NB: Since we get run via npm run test, we know that npm bins are in our
     // PATH.
     const result = await spawnPromise("uuid", [], { split: true });
-    expect(result[0].match(uuidRegex)).to.be.ok;
-    expect(result[1].match(uuidRegex)).to.not.be.ok;
+    expect(result[0].match(uuidRegex)).toBeTruthy();
+    expect(result[1].match(uuidRegex)).toBeFalsy();
   });
 
-  it("should retur nthe exit code", async function () {
+  it("should retur nthe exit code", async () => {
     // NB: Since we get run via npm run test, we know that npm bins are in our
     // PATH.
     try {
       await spawnPromise("false", [], { split: true });
-      expect(false).to.be.true;
-    } catch (e) {
-      expect(e.code).to.be.equal(1);
+      expect(false).toBe(true);
+    } catch (e: any) {
+      expect(e.code).toBe(1);
     }
   });
 
-  it("should not stdout and stderr when we call uuid with split false", async function () {
+  it("should not stdout and stderr when we call uuid with split false", async () => {
     // NB: Since we get run via npm run test, we know that npm bins are in our
     // PATH.
     const result = await spawnPromise("uuid", [], { split: false });
-    expect(result.match(uuidRegex)).to.be.ok;
+    expect(result.match(uuidRegex)).toBeTruthy();
   });
 });
 
-describe("The spawnDetachedPromise method", function () {
-  it("should return a uuid when we call uuid", async function () {
+describe("The spawnDetachedPromise method", () => {
+  it("should return a uuid when we call uuid", async () => {
     // NB: Since we get run via npm run test, we know that npm bins are in our
     // PATH.
     const result = await spawnDetachedPromise("uuid", ["--help"]);
-    expect(result.length > 10).to.be.ok;
+    expect(result.length > 10).toBeTruthy();
   });
 });
 
@@ -85,14 +83,14 @@ function wrapSplitObservableInPromise(
   });
 }
 
-describe("The spawn method", function () {
-  it("should return a disposable subscription", async function () {
+describe("The spawn method", () => {
+  it("should return a disposable subscription", async () => {
     // this only check the unsubscribe goes w/o error, not that the spawned process is killed
     // (difficult to do that, maybe iterate through child processes and check ?)
     spawn("sleep", ["2"]).subscribe().unsubscribe();
   });
 
-  it("should return split stderr in a inner tag when called with split", async function () {
+  it("should return split stderr in a inner tag when called with split", async () => {
     // provide an invalid param to uuid so it complains on stderr
     const rxSpawn: Observable<{ source: any; text: any }> = spawn(
       "uuid",
@@ -100,41 +98,41 @@ describe("The spawn method", function () {
       { split: true },
     ) as any;
     const result = await wrapSplitObservableInPromise(rxSpawn);
-    expect(result.stderr.length > 10).to.be.ok;
-    expect(result.stdout).to.be.empty;
-    expect(result.error).to.be.an("error");
+    expect(result.stderr.length > 10).toBeTruthy();
+    expect(result.stdout).toBe("");
+    expect(result.error).toBeInstanceOf(Error);
   });
 
-  it("should return split stdout in a inner tag when called with split", async function () {
+  it("should return split stdout in a inner tag when called with split", async () => {
     const rxSpawn: Observable<{ source: any; text: any }> = spawn("uuid", [], {
       split: true,
     });
     const result = await wrapSplitObservableInPromise(rxSpawn);
-    expect(result.stdout.match(uuidRegex)).to.be.ok;
-    expect(result.stderr).to.be.empty;
-    expect(result.error).to.be.undefined;
+    expect(result.stdout.match(uuidRegex)).toBeTruthy();
+    expect(result.stderr).toBe("");
+    expect(result.error).toBeUndefined();
   });
 
-  it("should ignore stderr if options.stdio = ignore", async function () {
+  it("should ignore stderr if options.stdio = ignore", async () => {
     const rxSpawn: Observable<{ source: any; text: any }> = spawn(
       "uuid",
       ["foo"],
       { split: true, stdio: [null, null, "ignore"] },
     );
     const result = await wrapSplitObservableInPromise(rxSpawn);
-    expect(result.stderr).to.be.empty;
+    expect(result.stderr).toBe("");
   });
 
-  it("should ignore stdout if options.stdio = inherit", async function () {
+  it("should ignore stdout if options.stdio = inherit", async () => {
     const rxSpawn: Observable<{ source: any; text: any }> = spawn("uuid", [], {
       split: true,
       stdio: [null, "inherit", null],
     });
     const result = await wrapSplitObservableInPromise(rxSpawn);
-    expect(result.stdout).to.be.empty;
+    expect(result.stdout).toBe("");
   });
 
-  it("should croak if stdin is provided but stdio.stdin is disabled", async function () {
+  it("should croak if stdin is provided but stdio.stdin is disabled", async () => {
     const stdin = of("a");
     const rxSpawn: Observable<{ source: any; text: any }> = spawn(
       "marked",
@@ -146,10 +144,10 @@ describe("The spawn method", function () {
       },
     );
     const result = await wrapSplitObservableInPromise(rxSpawn);
-    expect(result.error).to.be.an("error");
+    expect(result.error).toBeInstanceOf(Error);
   });
 
-  it("should subscribe to provided stdin", async function () {
+  it("should subscribe to provided stdin", async () => {
     const stdin = of("a");
     const rxSpawn: Observable<{ source: any; text: any }> = spawn(
       "marked",
@@ -160,6 +158,6 @@ describe("The spawn method", function () {
       },
     );
     const result = await wrapSplitObservableInPromise(rxSpawn);
-    expect(result.stdout.trim()).to.be.equal("<p>a</p>");
+    expect(result.stdout.trim()).toBe("<p>a</p>");
   });
 });

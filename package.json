@@ -7,7 +7,7 @@
     "compile": "tsc -p ./tsconfig.json",
     "prepublishOnly": "bun run build",
     "lint": "bunx eslint .",
-    "test": "mocha --compilers ts:ts-node/register ./test/*",
+    "test": "bun test",
     "build": "bun run compile && bun run test"
   },
   "repository": {
@@ -33,14 +33,9 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.1.0",
     "@eslint/js": "^9.14.0",
-    "@types/chai": "^4.3.20",
-    "@types/chai-as-promised": "^7.1.8",
     "@types/debug": "^4.1.12",
-    "@types/mocha": "^2.2.48",
     "@types/node": "^8.10.66",
     "babel-register": "^6.23.0",
-    "chai": "^4.5.0",
-    "chai-as-promised": "^7.1.2",
     "esdoc": "^1.1.0",
     "esdoc-es7-plugin": "0.0.3",
     "esdoc-plugin-async-to-sync": "^0.5.0",
@@ -48,10 +43,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
     "marked": "^0.5.0",
-    "mocha": "^4.0.0",
-    "npm-run-all": "^4.0.2",
     "prettier": "^3.3.3",
-    "ts-node": "^3.3.0",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.14.0",
     "uuid": "3.0.1"
