@@ -216,7 +216,9 @@ export type SpawnResult<T extends SpawnRxExtras> = T extends { split: true }
 /**
  * Utility type to extract the promise return type based on split option
  */
-export type SpawnPromiseResult<T extends SpawnRxExtras> = T extends { split: true }
+export type SpawnPromiseResult<T extends SpawnRxExtras> = T extends {
+  split: true;
+}
   ? Promise<[string, string]>
   : Promise<string>;
 
@@ -573,7 +575,9 @@ function wrapObservableInPromise(obs: Observable<string>) {
     let out = "";
 
     obs.subscribe({
-      next: (x: string) => (out += x),
+      next: (x: string) => {
+        out += x;
+      },
       error: (e: unknown) => {
         if (e instanceof SpawnError) {
           const err = new SpawnError(`${out}\n${e.message}`, e.exitCode, e.command, e.args, out, e.stderr);
@@ -594,7 +598,13 @@ function wrapObservableInSplitPromise(obs: Observable<OutputLine>) {
     let err = "";
 
     obs.subscribe({
-      next: (x: OutputLine) => (x.source === "stdout" ? (out += x.text) : (err += x.text)),
+      next: (x: OutputLine) => {
+        if (x.source === "stdout") {
+          out += x.text;
+        } else {
+          err += x.text;
+        }
+      },
       error: (e: unknown) => {
         if (e instanceof SpawnError) {
           const error = new SpawnError(`${out}\n${e.message}`, e.exitCode, e.command, e.args, out, err);
