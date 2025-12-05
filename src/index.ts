@@ -1,17 +1,56 @@
+import { type SpawnOptions, spawn as spawnOg } from "node:child_process";
+import * as sfs from "node:fs";
+import * as net from "node:net";
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import * as path from "path";
-import * as net from "net";
-import * as sfs from "fs";
-
-import type { Observer, Subject } from "rxjs";
-import { Observable, Subscription, AsyncSubject, of, merge } from "rxjs";
-import { map, reduce } from "rxjs/operators";
-import { spawn as spawnOg, SpawnOptions } from "child_process";
+import * as path from "node:path";
 import Debug from "debug";
+import type { Observer, Subject } from "rxjs";
+import { AsyncSubject, merge, Observable, of, Subscription, timer } from "rxjs";
+import { map, reduce, retry as rxRetry } from "rxjs/operators";
 
 const isWindows = process.platform === "win32";
 
 const d = Debug("spawn-rx"); // tslint:disable-line:no-var-requires
+
+/**
+ * Custom error class for spawn operations with additional metadata
+ */
+export class SpawnError extends Error {
+  public readonly exitCode: number;
+  public readonly code: number;
+  public readonly stdout?: string;
+  public readonly stderr?: string;
+  public readonly command: string;
+  public readonly args: string[];
+
+  constructor(message: string, exitCode: number, command: string, args: string[], stdout?: string, stderr?: string) {
+    super(message);
+    this.name = "SpawnError";
+    this.exitCode = exitCode;
+    this.code = exitCode;
+    this.stdout = stdout;
+    this.stderr = stderr;
+    this.command = command;
+    this.args = args;
+
+    // Maintains proper stack trace for where our error was thrown (only available on V8)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((Error as any).captureStackTrace) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (Error as any).captureStackTrace(this, SpawnError);
+    }
+  }
+}
+
+/**
+ * Process metadata tracked during execution
+ */
+export interface ProcessMetadata {
+  pid: number;
+  startTime: number;
+  command: string;
+  args: string[];
+}
 
 /**
  * stat a file but don't throw if it doesn't exist
@@ -50,7 +89,7 @@ function runDownPath(exe: string): string {
 
   const target = path.join(".", exe);
   if (statSyncNoException(target)) {
-    d(`Found executable in currect directory: ${target}`);
+    d(`Found executable in current directory: ${target}`);
 
     // XXX: Some very Odd programs decide to use args[0] as a parameter
     // to determine what to do, and also symlink themselves, so we can't
@@ -58,12 +97,14 @@ function runDownPath(exe: string): string {
     return target;
   }
 
-  const haystack = process.env.PATH!.split(isWindows ? ";" : ":");
-  for (const p of haystack) {
-    const needle = path.join(p, exe);
-    if (statSyncNoException(needle)) {
-      // NB: Same deal as above
-      return needle;
+  const haystack = process.env.PATH?.split(isWindows ? ";" : ":");
+  if (haystack) {
+    for (const p of haystack) {
+      const needle = path.join(p, exe);
+      if (statSyncNoException(needle)) {
+        // NB: Same deal as above
+        return needle;
+      }
     }
   }
 
@@ -114,21 +155,8 @@ export function findActualExecutable(
   }
 
   if (exe.match(/\.ps1$/i)) {
-    const cmd = path.join(
-      process.env.SYSTEMROOT!,
-      "System32",
-      "WindowsPowerShell",
-      "v1.0",
-      "PowerShell.exe",
-    );
-    const psargs = [
-      "-ExecutionPolicy",
-      "Unrestricted",
-      "-NoLogo",
-      "-NonInteractive",
-      "-File",
-      exe,
-    ];
+    const cmd = path.join(process.env.SYSTEMROOT!, "System32", "WindowsPowerShell", "v1.0", "PowerShell.exe");
+    const psargs = ["-ExecutionPolicy", "Unrestricted", "-NoLogo", "-NonInteractive", "-File", exe];
 
     return { cmd: cmd, args: psargs.concat(args) };
   }
@@ -157,12 +185,56 @@ export type SpawnRxExtras = {
   split?: boolean;
   jobber?: boolean;
   encoding?: BufferEncoding;
+  /**
+   * Timeout in milliseconds. If the process doesn't complete within this time,
+   * it will be killed and the observable will error with a TimeoutError.
+   */
+  timeout?: number;
+  /**
+   * Number of retry attempts if the process fails (non-zero exit code).
+   * Defaults to 0 (no retries).
+   */
+  retries?: number;
+  /**
+   * Delay in milliseconds between retry attempts. Defaults to 1000ms.
+   */
+  retryDelay?: number;
 };
 
 export type OutputLine = {
   source: "stdout" | "stderr";
   text: string;
 };
+
+/**
+ * Utility type to extract the return type based on split option
+ */
+export type SpawnResult<T extends SpawnRxExtras> = T extends { split: true }
+  ? Observable<OutputLine>
+  : Observable<string>;
+
+/**
+ * Utility type to extract the promise return type based on split option
+ */
+export type SpawnPromiseResult<T extends SpawnRxExtras> = T extends {
+  split: true;
+}
+  ? Promise<[string, string]>
+  : Promise<string>;
+
+/**
+ * Helper function to create a spawn command with better type inference
+ */
+export function createSpawnCommand(exe: string, params: string[] = []) {
+  return {
+    exe,
+    params,
+    spawn: (opts?: SpawnOptions & SpawnRxExtras) => spawn(exe, params, opts as any),
+    spawnDetached: (opts?: SpawnOptions & SpawnRxExtras) => spawnDetached(exe, params, opts as any),
+    spawnPromise: (opts?: SpawnOptions & SpawnRxExtras) => spawnPromise(exe, params, opts as any),
+    spawnDetachedPromise: (opts?: SpawnOptions & SpawnRxExtras) => spawnDetachedPromise(exe, params, opts as any),
+  };
+}
 
 /**
  * Spawns a process but detached from the current process. The process is put
@@ -235,23 +307,27 @@ export function spawnDetached(
   const { cmd, args } = findActualExecutable(exe, params ?? []);
 
   if (!isWindows) {
-    return spawn(
-      cmd,
-      args,
-      Object.assign({}, opts || {}, { detached: true }) as any,
-    );
+    return spawn(cmd, args, Object.assign({}, opts || {}, { detached: true }) as any);
   }
 
   const newParams = [cmd].concat(args);
 
-  const target = path.join(
-    __dirname,
-    "..",
-    "..",
-    "vendor",
-    "jobber",
-    "Jobber.exe",
-  );
+  // Resolve Jobber.exe path relative to package root (works from both src/ and lib/src/)
+  // Try multiple possible locations to handle both development and compiled scenarios
+  let target = path.join(__dirname, "..", "..", "vendor", "jobber", "Jobber.exe");
+  if (!sfs.existsSync(target)) {
+    // Fallback: try resolving from current working directory (for tests/runtime)
+    const cwdTarget = path.join(process.cwd(), "vendor", "jobber", "Jobber.exe");
+    if (sfs.existsSync(cwdTarget)) {
+      target = cwdTarget;
+    } else {
+      // Try one more level up (if running from test/ directory)
+      const testTarget = path.join(process.cwd(), "..", "vendor", "jobber", "Jobber.exe");
+      if (sfs.existsSync(testTarget)) {
+        target = testTarget;
+      }
+    }
+  }
   const options = {
     ...(opts ?? {}),
     detached: true,
@@ -325,133 +401,173 @@ export function spawn(
   opts?: SpawnOptions & SpawnRxExtras,
 ): Observable<string> | Observable<OutputLine> {
   opts = opts ?? {};
-  const spawnObs: Observable<OutputLine> = new Observable(
-    (subj: Observer<OutputLine>) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { stdin, jobber, split, encoding, ...spawnOpts } = opts;
-      const { cmd, args } = findActualExecutable(exe, params);
-      d(
-        `spawning process: ${cmd} ${args.join()}, ${JSON.stringify(spawnOpts)}`,
-      );
+  const spawnObs: Observable<OutputLine> = new Observable((subj: Observer<OutputLine>) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { stdin, jobber, split, encoding, timeout, retries, retryDelay, ...spawnOpts } = opts!;
+    const { cmd, args } = findActualExecutable(exe, params);
+    d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(spawnOpts)}`);
 
-      const proc = spawnOg(cmd, args, spawnOpts);
+    const proc = spawnOg(cmd, args, spawnOpts);
+    // Process metadata is tracked but not currently exposed
+    // Could be added to SpawnError or returned in a future enhancement
+    // const _processMetadata: ProcessMetadata = {
+    //   pid: proc.pid ?? 0,
+    //   startTime: Date.now(),
+    //   command: cmd,
+    //   args: args,
+    // };
 
-      const bufHandler =
-        (source: "stdout" | "stderr") => (b: string | Buffer) => {
-          if (b.length < 1) {
-            return;
-          }
-
-          if (opts.echoOutput) {
-            (source === "stdout" ? process.stdout : process.stderr).write(b);
-          }
-
-          let chunk = "<< String sent back was too long >>";
-          try {
-            if (typeof b === "string") {
-              chunk = b.toString();
-            } else {
-              chunk = b.toString(encoding || "utf8");
-            }
-          } catch {
-            chunk = `<< Lost chunk of process output for ${exe} - length was ${b.length}>>`;
-          }
-
-          subj.next({ source: source, text: chunk });
-        };
-
-      const ret = new Subscription();
-
-      if (opts.stdin) {
-        if (proc.stdin) {
-          ret.add(
-            opts.stdin.subscribe({
-              next: (x: any) => proc.stdin.write(x),
-              error: subj.error.bind(subj),
-              complete: () => proc.stdin.end(),
-            }),
-          );
-        } else {
-          subj.error(
-            new Error(
-              `opts.stdio conflicts with provided spawn opts.stdin observable, 'pipe' is required`,
-            ),
-          );
+    // Set up timeout if specified
+    let timeoutHandle: NodeJS.Timeout | null = null;
+    if (timeout && timeout > 0) {
+      timeoutHandle = setTimeout(() => {
+        d(`Process timeout reached: ${cmd} ${args.join()}`);
+        if (!proc.killed) {
+          proc.kill();
         }
+        const error = new SpawnError(`Process timed out after ${timeout}ms`, -1, cmd, args);
+        subj.error(error);
+      }, timeout);
+    }
+
+    const bufHandler = (source: "stdout" | "stderr") => (b: string | Buffer) => {
+      if (b.length < 1) {
+        return;
       }
 
-      let stderrCompleted: Subject<boolean> | Observable<boolean> | null = null;
-      let stdoutCompleted: Subject<boolean> | Observable<boolean> | null = null;
-      let noClose = false;
-
-      if (proc.stdout) {
-        stdoutCompleted = new AsyncSubject<boolean>();
-        proc.stdout.on("data", bufHandler("stdout"));
-        proc.stdout.on("close", () => {
-          (stdoutCompleted! as Subject<boolean>).next(true);
-          (stdoutCompleted! as Subject<boolean>).complete();
-        });
-      } else {
-        stdoutCompleted = of(true);
+      if (opts.echoOutput) {
+        (source === "stdout" ? process.stdout : process.stderr).write(b);
       }
 
-      if (proc.stderr) {
-        stderrCompleted = new AsyncSubject<boolean>();
-        proc.stderr.on("data", bufHandler("stderr"));
-        proc.stderr.on("close", () => {
-          (stderrCompleted! as Subject<boolean>).next(true);
-          (stderrCompleted! as Subject<boolean>).complete();
-        });
-      } else {
-        stderrCompleted = of(true);
+      let chunk = "<< String sent back was too long >>";
+      try {
+        if (typeof b === "string") {
+          chunk = b.toString();
+        } else {
+          chunk = b.toString(encoding || "utf8");
+        }
+      } catch {
+        chunk = `<< Lost chunk of process output for ${exe} - length was ${b.length}>>`;
       }
 
-      proc.on("error", (e: Error) => {
-        noClose = true;
-        subj.error(e);
-      });
+      subj.next({ source: source, text: chunk });
+    };
 
-      proc.on("close", (code: number) => {
-        noClose = true;
-        const pipesClosed = merge(stdoutCompleted!, stderrCompleted!).pipe(
-          reduce((acc) => acc, true),
+    const ret = new Subscription();
+
+    if (opts.stdin) {
+      if (proc.stdin) {
+        const stdin = proc.stdin;
+        ret.add(
+          opts.stdin.subscribe({
+            next: (x: any) => stdin.write(x),
+            error: subj.error.bind(subj),
+            complete: () => stdin.end(),
+          }),
         );
+      } else {
+        subj.error(new Error(`opts.stdio conflicts with provided spawn opts.stdin observable, 'pipe' is required`));
+      }
+    }
 
-        if (code === 0) {
-          pipesClosed.subscribe(() => subj.complete());
-        } else {
-          pipesClosed.subscribe(() => {
-            const e: any = new Error(`Failed with exit code: ${code}`);
-            e.exitCode = code;
-            e.code = code;
+    let stderrCompleted: Subject<boolean> | Observable<boolean> | null = null;
+    let stdoutCompleted: Subject<boolean> | Observable<boolean> | null = null;
+    let noClose = false;
 
-            subj.error(e);
-          });
-        }
+    if (proc.stdout) {
+      stdoutCompleted = new AsyncSubject<boolean>();
+      proc.stdout.on("data", bufHandler("stdout"));
+      proc.stdout.on("close", () => {
+        (stdoutCompleted! as Subject<boolean>).next(true);
+        (stdoutCompleted! as Subject<boolean>).complete();
       });
+    } else {
+      stdoutCompleted = of(true);
+    }
 
-      ret.add(
-        new Subscription(() => {
-          if (noClose) {
-            return;
+    if (proc.stderr) {
+      stderrCompleted = new AsyncSubject<boolean>();
+      proc.stderr.on("data", bufHandler("stderr"));
+      proc.stderr.on("close", () => {
+        (stderrCompleted! as Subject<boolean>).next(true);
+        (stderrCompleted! as Subject<boolean>).complete();
+      });
+    } else {
+      stderrCompleted = of(true);
+    }
+
+    proc.on("error", (e: Error) => {
+      noClose = true;
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+      subj.error(e);
+    });
+
+    proc.on("close", (code: number) => {
+      noClose = true;
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+      const pipesClosed = merge(stdoutCompleted!, stderrCompleted!).pipe(reduce((_acc: boolean) => true, true));
+
+      if (code === 0) {
+        pipesClosed.subscribe(() => subj.complete());
+      } else {
+        pipesClosed.subscribe(() => {
+          const error = new SpawnError(`Process failed with exit code: ${code}`, code, cmd, args);
+          subj.error(error);
+        });
+      }
+    });
+
+    ret.add(
+      new Subscription(() => {
+        if (noClose) {
+          return;
+        }
+
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+
+        d(`Killing process: ${cmd} ${args.join()}`);
+        if (opts.jobber) {
+          // NB: Connecting to Jobber's named pipe will kill it
+          net.connect(`\\\\.\\pipe\\jobber-${proc.pid}`);
+          setTimeout(() => proc.kill(), 5 * 1000);
+        } else {
+          proc.kill();
+        }
+      }),
+    );
+
+    return ret;
+  });
+
+  let resultObs: Observable<OutputLine> = spawnObs;
+
+  // Apply retry logic if specified
+  if (opts.retries && opts.retries > 0) {
+    const retryCount = opts.retries;
+    const delay = opts.retryDelay ?? 1000;
+    resultObs = resultObs.pipe(
+      rxRetry({
+        count: retryCount,
+        delay: (error: unknown, retryIndex: number) => {
+          // Only retry on SpawnError with non-zero exit codes
+          if (error instanceof SpawnError && error.exitCode !== 0) {
+            d(`Retrying process (attempt ${retryIndex + 1}/${retryCount}): ${exe}`);
+            return timer(delay);
           }
+          // Don't retry on other errors
+          throw error;
+        },
+      }),
+    );
+  }
 
-          d(`Killing process: ${cmd} ${args.join()}`);
-          if (opts.jobber) {
-            // NB: Connecting to Jobber's named pipe will kill it
-            net.connect(`\\\\.\\pipe\\jobber-${proc.pid}`);
-            setTimeout(() => proc.kill(), 5 * 1000);
-          } else {
-            proc.kill();
-          }
-        }),
-      );
-
-      return ret;
-    },
-  );
-
-  return opts.split ? spawnObs : spawnObs.pipe(map((x: any) => x?.text));
+  return opts.split ? resultObs : resultObs.pipe(map((x: OutputLine) => x?.text));
 }
 
 function wrapObservableInPromise(obs: Observable<string>) {
@@ -459,14 +575,17 @@ function wrapObservableInPromise(obs: Observable<string>) {
     let out = "";
 
     obs.subscribe({
-      next: (x) => (out += x),
-      error: (e) => {
-        const err: any = new Error(`${out}\n${e.message}`);
-        if ("exitCode" in e) {
-          err.exitCode = e.exitCode;
-          err.code = e.exitCode;
+      next: (x: string) => {
+        out += x;
+      },
+      error: (e: unknown) => {
+        if (e instanceof SpawnError) {
+          const err = new SpawnError(`${out}\n${e.message}`, e.exitCode, e.command, e.args, out, e.stderr);
+          rej(err);
+        } else {
+          const err = new Error(`${out}\n${e instanceof Error ? e.message : String(e)}`);
+          rej(err);
         }
-        rej(err);
       },
       complete: () => res(out),
     });
@@ -479,17 +598,21 @@ function wrapObservableInSplitPromise(obs: Observable<OutputLine>) {
     let err = "";
 
     obs.subscribe({
-      next: (x) => (x.source === "stdout" ? (out += x.text) : (err += x.text)),
-      error: (e) => {
-        const error: any = new Error(`${out}\n${e.message}`);
-
-        if ("exitCode" in e) {
-          error.exitCode = e.exitCode;
-          error.code = e.exitCode;
-          error.stdout = out;
-          error.stderr = err;
+      next: (x: OutputLine) => {
+        if (x.source === "stdout") {
+          out += x.text;
+        } else {
+          err += x.text;
         }
-        rej(error);
+      },
+      error: (e: unknown) => {
+        if (e instanceof SpawnError) {
+          const error = new SpawnError(`${out}\n${e.message}`, e.exitCode, e.command, e.args, out, err);
+          rej(error);
+        } else {
+          const error = new Error(`${out}\n${e instanceof Error ? e.message : String(e)}`);
+          rej(error);
+        }
       },
       complete: () => res([out, err]),
     });
@@ -556,14 +679,9 @@ export function spawnDetachedPromise(
   opts?: SpawnOptions & SpawnRxExtras,
 ): Promise<string> | Promise<[string, string]> {
   if (opts?.split) {
-    return wrapObservableInSplitPromise(
-      spawnDetached(exe, params, { ...(opts ?? {}), split: true }),
-    );
-  } else {
-    return wrapObservableInPromise(
-      spawnDetached(exe, params, { ...(opts ?? {}), split: false }),
-    );
+    return wrapObservableInSplitPromise(spawnDetached(exe, params, { ...(opts ?? {}), split: true }));
   }
+  return wrapObservableInPromise(spawnDetached(exe, params, { ...(opts ?? {}), split: false }));
 }
 
 /**
@@ -598,11 +716,7 @@ export function spawnPromise(
  *                                 non-zero value, the Promise will resolve with
  *                                 an Error.
  */
-export function spawnPromise(
-  exe: string,
-  params: string[],
-  opts?: SpawnOptions & SpawnRxExtras,
-): Promise<string>;
+export function spawnPromise(exe: string, params: string[], opts?: SpawnOptions & SpawnRxExtras): Promise<string>;
 
 /**
  * Spawns a process as a child process.
@@ -623,12 +737,7 @@ export function spawnPromise(
   opts?: SpawnOptions & SpawnRxExtras,
 ): Promise<string> | Promise<[string, string]> {
   if (opts?.split) {
-    return wrapObservableInSplitPromise(
-      spawn(exe, params, { ...(opts ?? {}), split: true }),
-    );
-  } else {
-    return wrapObservableInPromise(
-      spawn(exe, params, { ...(opts ?? {}), split: false }),
-    );
+    return wrapObservableInSplitPromise(spawn(exe, params, { ...(opts ?? {}), split: true }));
   }
+  return wrapObservableInPromise(spawn(exe, params, { ...(opts ?? {}), split: false }));
 }

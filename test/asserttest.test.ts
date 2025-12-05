@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-import { expect } from "chai";
-import "./support";
+import { describe, expect, it } from "bun:test";
 
 function delay(ms: number) {
   return new Promise((resolve) => {
@@ -8,9 +7,9 @@ function delay(ms: number) {
   });
 }
 
-describe("The test runner", function () {
-  it("should pass this test", async function () {
+describe("The test runner", () => {
+  it("should pass this test", async () => {
     await delay(1000);
-    expect(true).to.be.ok;
+    expect(true).toBeTruthy();
   });
 });
