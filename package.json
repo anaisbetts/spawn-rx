@@ -4,7 +4,7 @@
   "description": "An Rx-version of child_process.spawn",
   "scripts": {
     "doc": "echo \"esdoc may not work correctly\" && esdoc -c ./esdoc.json",
-    "compile": "tsc -p ./tsconfig.json",
+    "compile": "tsgo -p ./tsconfig.json",
     "prepublishOnly": "bun run build",
     "check": "biome check",
     "fix": "biome check --write --unsafe .",
@@ -35,13 +35,13 @@
     "@biomejs/biome": "^2.3.0",
     "@types/debug": "^4.1.12",
     "@types/node": "^22.0.0",
+    "@typescript/native-preview": "^7.0.0-dev.20251221.1",
     "babel-register": "^6.23.0",
     "bun-types": "latest",
     "esdoc": "^1.1.0",
     "esdoc-es7-plugin": "0.0.3",
     "esdoc-plugin-async-to-sync": "^0.5.0",
     "marked": "^0.5.0",
-    "typescript": "^5.6.3",
     "uuid": "3.0.1"
   }
 }
