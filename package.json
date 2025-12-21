@@ -29,6 +29,7 @@
   "homepage": "https://github.com/anaisbetts/spawn-rx",
   "dependencies": {
     "debug": "^4.3.7",
+    "lru-cache": "^11.2.4",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
@@ -37,7 +38,6 @@
     "@types/node": "^22.0.0",
     "@typescript/native-preview": "^7.0.0-dev.20251221.1",
     "babel-register": "^6.23.0",
-    "bun-types": "latest",
     "esdoc": "^1.1.0",
     "esdoc-es7-plugin": "0.0.3",
     "esdoc-plugin-async-to-sync": "^0.5.0",

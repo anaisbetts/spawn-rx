@@ -1,9 +1,10 @@
 import { type SpawnOptions, spawn as spawnOg } from "node:child_process";
 import * as sfs from "node:fs";
-import * as net from "node:net";
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
+
 import Debug from "debug";
+import { LRUCache } from "lru-cache";
 import type { Observer, Subject } from "rxjs";
 import { AsyncSubject, merge, Observable, of, Subscription, timer } from "rxjs";
 import { map, reduce, retry as rxRetry } from "rxjs/operators";
@@ -60,13 +61,30 @@ export interface ProcessMetadata {
  *
  * @private
  */
-function statSyncNoException(file: string): sfs.Stats | null {
+export function statSyncNoException(file: string): sfs.Stats | null {
   try {
     return sfs.statSync(file);
   } catch {
     return null;
   }
 }
+
+/**
+ * stat a file but don't throw if it doesn't exist
+ *
+ * @param  {string} file The path to a file
+ * @return {Stats}       The stats structure
+ *
+ * @private
+ */
+export function statNoException(file: string): Promise<sfs.Stats | null> {
+  return fs.stat(file).catch(() => null);
+}
+
+/**
+ * Cache for resolved executable paths
+ */
+const pathCache = new LRUCache<string, string>({ max: 512 });
 
 /**
  * Search PATH to see if a file exists in any of the path folders.
@@ -78,12 +96,20 @@ function statSyncNoException(file: string): sfs.Stats | null {
  * @private
  */
 function runDownPath(exe: string): string {
+  // Check cache first
+  const cached = pathCache.get(exe);
+  if (cached !== undefined) {
+    d(`Cache hit for executable: ${exe} -> ${cached}`);
+    return cached;
+  }
+
   // NB: Windows won't search PATH looking for executables in spawn like
   // Posix does
 
   // Files with any directory path don't get this applied
   if (exe.match(/[\\/]/)) {
     d("Path has slash in directory, bailing");
+    pathCache.set(exe, exe);
     return exe;
   }
 
@@ -94,6 +120,7 @@ function runDownPath(exe: string): string {
     // XXX: Some very Odd programs decide to use args[0] as a parameter
     // to determine what to do, and also symlink themselves, so we can't
     // use realpathSync here like we used to
+    pathCache.set(exe, target);
     return target;
   }
 
@@ -103,14 +130,21 @@ function runDownPath(exe: string): string {
       const needle = path.join(p, exe);
       if (statSyncNoException(needle)) {
         // NB: Same deal as above
+        pathCache.set(exe, needle);
         return needle;
       }
     }
   }
 
   d("Failed to find executable anywhere in path");
+  pathCache.set(exe, exe);
   return exe;
 }
+
+export type CmdWithArgs = {
+  cmd: string;
+  args: string[];
+};
 
 /**
  * Finds the actual executable and parameters to run on Windows. This method
@@ -128,13 +162,7 @@ function runDownPath(exe: string): string {
  * @property {string} cmd         The command to pass to spawn
  * @property {string[]} args The arguments to pass to spawn
  */
-export function findActualExecutable(
-  exe: string,
-  args: string[],
-): {
-  cmd: string;
-  args: string[];
-} {
+export function findActualExecutable(exe: string, args: string[]): CmdWithArgs {
   // POSIX can just execute scripts directly, no need for silly goosery
   if (process.platform !== "win32") {
     return { cmd: runDownPath(exe), args: args };
@@ -183,7 +211,6 @@ export type SpawnRxExtras = {
   stdin?: Observable<string>;
   echoOutput?: boolean;
   split?: boolean;
-  jobber?: boolean;
   encoding?: BufferEncoding;
   /**
    * Timeout in milliseconds. If the process doesn't complete within this time,
@@ -221,122 +248,6 @@ export type SpawnPromiseResult<T extends SpawnRxExtras> = T extends {
 }
   ? Promise<[string, string]>
   : Promise<string>;
-
-/**
- * Helper function to create a spawn command with better type inference
- */
-export function createSpawnCommand(exe: string, params: string[] = []) {
-  return {
-    exe,
-    params,
-    spawn: (opts?: SpawnOptions & SpawnRxExtras) => spawn(exe, params, opts as any),
-    spawnDetached: (opts?: SpawnOptions & SpawnRxExtras) => spawnDetached(exe, params, opts as any),
-    spawnPromise: (opts?: SpawnOptions & SpawnRxExtras) => spawnPromise(exe, params, opts as any),
-    spawnDetachedPromise: (opts?: SpawnOptions & SpawnRxExtras) => spawnDetachedPromise(exe, params, opts as any),
-  };
-}
-
-/**
- * Spawns a process but detached from the current process. The process is put
- * into its own Process Group that can be killed by unsubscribing from the
- * return Observable.
- *
- * @param  {string} exe               The executable to run
- * @param  {string[]} params     The parameters to pass to the child
- * @param  {SpawnOptions & SpawnRxExtras} opts              Options to pass to spawn.
- *
- * @return {Observable<OutputLine>}       Returns an Observable that when subscribed
- *                                    to, will create a detached process. The
- *                                    process output will be streamed to this
- *                                    Observable, and if unsubscribed from, the
- *                                    process will be terminated early. If the
- *                                    process terminates with a non-zero value,
- *                                    the Observable will terminate with onError.
- */
-export function spawnDetached(
-  exe: string,
-  params: string[],
-  opts: SpawnOptions & SpawnRxExtras & { split: true },
-): Observable<OutputLine>;
-
-/**
- * Spawns a process but detached from the current process. The process is put
- * into its own Process Group that can be killed by unsubscribing from the
- * return Observable.
- *
- * @param  {string} exe               The executable to run
- * @param  {string[]} params     The parameters to pass to the child
- * @param  {SpawnOptions & SpawnRxExtras} opts              Options to pass to spawn.
- *
- * @return {Observable<string>}       Returns an Observable that when subscribed
- *                                    to, will create a detached process. The
- *                                    process output will be streamed to this
- *                                    Observable, and if unsubscribed from, the
- *                                    process will be terminated early. If the
- *                                    process terminates with a non-zero value,
- *                                    the Observable will terminate with onError.
- */
-export function spawnDetached(
-  exe: string,
-  params: string[],
-  opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
-): Observable<string>;
-
-/**
- * Spawns a process but detached from the current process. The process is put
- * into its own Process Group that can be killed by unsubscribing from the
- * return Observable.
- *
- * @param  {string} exe               The executable to run
- * @param  {string[]} params     The parameters to pass to the child
- * @param  {SpawnOptions & SpawnRxExtras} opts              Options to pass to spawn.
- *
- * @return {Observable<string>}       Returns an Observable that when subscribed
- *                                    to, will create a detached process. The
- *                                    process output will be streamed to this
- *                                    Observable, and if unsubscribed from, the
- *                                    process will be terminated early. If the
- *                                    process terminates with a non-zero value,
- *                                    the Observable will terminate with onError.
- */
-export function spawnDetached(
-  exe: string,
-  params: string[],
-  opts?: SpawnOptions & SpawnRxExtras,
-): Observable<string> | Observable<OutputLine> {
-  const { cmd, args } = findActualExecutable(exe, params ?? []);
-
-  if (!isWindows) {
-    return spawn(cmd, args, Object.assign({}, opts || {}, { detached: true }) as any);
-  }
-
-  const newParams = [cmd].concat(args);
-
-  // Resolve Jobber.exe path relative to package root (works from both src/ and lib/src/)
-  // Try multiple possible locations to handle both development and compiled scenarios
-  let target = path.join(__dirname, "..", "..", "vendor", "jobber", "Jobber.exe");
-  if (!sfs.existsSync(target)) {
-    // Fallback: try resolving from current working directory (for tests/runtime)
-    const cwdTarget = path.join(process.cwd(), "vendor", "jobber", "Jobber.exe");
-    if (sfs.existsSync(cwdTarget)) {
-      target = cwdTarget;
-    } else {
-      // Try one more level up (if running from test/ directory)
-      const testTarget = path.join(process.cwd(), "..", "vendor", "jobber", "Jobber.exe");
-      if (sfs.existsSync(testTarget)) {
-        target = testTarget;
-      }
-    }
-  }
-  const options = {
-    ...(opts ?? {}),
-    detached: true,
-    jobber: true,
-  };
-
-  d(`spawnDetached: ${target}, ${newParams}`);
-  return spawn(target, newParams, options as any);
-}
 
 /**
  * Spawns a process attached as a child of the current process.
@@ -403,7 +314,7 @@ export function spawn(
   opts = opts ?? {};
   const spawnObs: Observable<OutputLine> = new Observable((subj: Observer<OutputLine>) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { stdin, jobber, split, encoding, timeout, retries, retryDelay, ...spawnOpts } = opts!;
+    const { encoding, timeout, ...spawnOpts } = opts;
     const { cmd, args } = findActualExecutable(exe, params);
     d(`spawning process: ${cmd} ${args.join()}, ${JSON.stringify(spawnOpts)}`);
 
@@ -460,7 +371,7 @@ export function spawn(
         const stdin = proc.stdin;
         ret.add(
           opts.stdin.subscribe({
-            next: (x: any) => stdin.write(x),
+            next: (x) => stdin.write(x),
             error: subj.error.bind(subj),
             complete: () => stdin.end(),
           }),
@@ -478,8 +389,8 @@ export function spawn(
       stdoutCompleted = new AsyncSubject<boolean>();
       proc.stdout.on("data", bufHandler("stdout"));
       proc.stdout.on("close", () => {
-        (stdoutCompleted! as Subject<boolean>).next(true);
-        (stdoutCompleted! as Subject<boolean>).complete();
+        (stdoutCompleted as Subject<boolean>).next(true);
+        (stdoutCompleted as Subject<boolean>).complete();
       });
     } else {
       stdoutCompleted = of(true);
@@ -489,8 +400,8 @@ export function spawn(
       stderrCompleted = new AsyncSubject<boolean>();
       proc.stderr.on("data", bufHandler("stderr"));
       proc.stderr.on("close", () => {
-        (stderrCompleted! as Subject<boolean>).next(true);
-        (stderrCompleted! as Subject<boolean>).complete();
+        (stderrCompleted as Subject<boolean>).next(true);
+        (stderrCompleted as Subject<boolean>).complete();
       });
     } else {
       stderrCompleted = of(true);
@@ -509,7 +420,7 @@ export function spawn(
       if (timeoutHandle) {
         clearTimeout(timeoutHandle);
       }
-      const pipesClosed = merge(stdoutCompleted!, stderrCompleted!).pipe(reduce((_acc: boolean) => true, true));
+      const pipesClosed = merge(stdoutCompleted, stderrCompleted).pipe(reduce((_acc: boolean) => true, true));
 
       if (code === 0) {
         pipesClosed.subscribe(() => subj.complete());
@@ -532,13 +443,7 @@ export function spawn(
         }
 
         d(`Killing process: ${cmd} ${args.join()}`);
-        if (opts.jobber) {
-          // NB: Connecting to Jobber's named pipe will kill it
-          net.connect(`\\\\.\\pipe\\jobber-${proc.pid}`);
-          setTimeout(() => proc.kill(), 5 * 1000);
-        } else {
-          proc.kill();
-        }
+        proc.kill();
       }),
     );
 
@@ -617,71 +522,6 @@ function wrapObservableInSplitPromise(obs: Observable<OutputLine>) {
       complete: () => res([out, err]),
     });
   });
-}
-
-/**
- * Spawns a process but detached from the current process. The process is put
- * into its own Process Group.
- *
- * @param  {string} exe               The executable to run
- * @param  {string[]} params     The parameters to pass to the child
- * @param  {SpawnOptions & SpawnRxExtras} opts              Options to pass to spawn.
- *
- * @return {Promise<[string, string]>}       Returns an Promise that represents a detached
- *                                 process. The value returned is the process
- *                                 output. If the process terminates with a
- *                                 non-zero value, the Promise will resolve with
- *                                 an Error.
- */
-export function spawnDetachedPromise(
-  exe: string,
-  params: string[],
-  opts: SpawnOptions & SpawnRxExtras & { split: true },
-): Promise<[string, string]>;
-
-/**
- * Spawns a process but detached from the current process. The process is put
- * into its own Process Group.
- *
- * @param  {string} exe               The executable to run
- * @param  {string[]} params     The parameters to pass to the child
- * @param  {SpawnOptions & SpawnRxExtras} opts              Options to pass to spawn.
- *
- * @return {Promise<string>}       Returns an Promise that represents a detached
- *                                 process. The value returned is the process
- *                                 output. If the process terminates with a
- *                                 non-zero value, the Promise will resolve with
- *                                 an Error.
- */
-export function spawnDetachedPromise(
-  exe: string,
-  params: string[],
-  opts?: SpawnOptions & SpawnRxExtras & { split: false | undefined },
-): Promise<string>;
-
-/**
- * Spawns a process but detached from the current process. The process is put
- * into its own Process Group.
- *
- * @param  {string} exe               The executable to run
- * @param  {string[]} params     The parameters to pass to the child
- * @param  {Object} opts              Options to pass to spawn.
- *
- * @return {Promise<string>}       Returns an Promise that represents a detached
- *                                 process. The value returned is the process
- *                                 output. If the process terminates with a
- *                                 non-zero value, the Promise will resolve with
- *                                 an Error.
- */
-export function spawnDetachedPromise(
-  exe: string,
-  params: string[],
-  opts?: SpawnOptions & SpawnRxExtras,
-): Promise<string> | Promise<[string, string]> {
-  if (opts?.split) {
-    return wrapObservableInSplitPromise(spawnDetached(exe, params, { ...(opts ?? {}), split: true }));
-  }
-  return wrapObservableInPromise(spawnDetached(exe, params, { ...(opts ?? {}), split: false }));
 }
 
 /**

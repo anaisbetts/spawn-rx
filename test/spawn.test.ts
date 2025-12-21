@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-expressions */
 import { describe, expect, it } from "bun:test";
 import type { Observable } from "rxjs";
 import { of } from "rxjs";
-import { spawn, spawnDetachedPromise, spawnPromise } from "../src/index";
+import { spawn, spawnPromise } from "../src/index";
 
 const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -39,15 +37,6 @@ describe("The spawnPromise method", () => {
     // PATH.
     const result = await spawnPromise("uuid", [], { split: false });
     expect(result.match(uuidRegex)).toBeTruthy();
-  });
-});
-
-describe("The spawnDetachedPromise method", () => {
-  it("should return a uuid when we call uuid", async () => {
-    // NB: Since we get run via npm run test, we know that npm bins are in our
-    // PATH.
-    const result = await spawnDetachedPromise("uuid", ["--help"]);
-    expect(result.length > 10).toBeTruthy();
   });
 });
 
