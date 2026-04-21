@@ -1,6 +1,6 @@
 {
   "name": "spawn-rx",
-  "version": "5.1.2",
+  "version": "6.0.1",
   "description": "An Rx-version of child_process.spawn",
   "scripts": {
     "doc": "echo \"esdoc may not work correctly\" && esdoc -c ./esdoc.json",
@@ -24,8 +24,8 @@
   "bugs": {
     "url": "https://github.com/anaisbetts/spawn-rx/issues"
   },
-  "main": "lib/src/index.js",
-  "typings": "lib/src/index.d.ts",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
   "homepage": "https://github.com/anaisbetts/spawn-rx",
   "dependencies": {
     "debug": "^4.3.7",
