@@ -371,7 +371,7 @@ export function spawn(
         const stdin = proc.stdin;
         ret.add(
           opts.stdin.subscribe({
-            next: (x) => stdin.write(x),
+            next: (x: string) => stdin.write(x),
             error: subj.error.bind(subj),
             complete: () => stdin.end(),
           }),
@@ -579,5 +579,5 @@ export function spawnPromise(
   if (opts?.split) {
     return wrapObservableInSplitPromise(spawn(exe, params, { ...(opts ?? {}), split: true }));
   }
-  return wrapObservableInPromise(spawn(exe, params, { ...(opts ?? {}), split: false }));
+  return wrapObservableInPromise(spawn(exe, params, { ...(opts ?? {}), split: false }) as Observable<string>);
 }

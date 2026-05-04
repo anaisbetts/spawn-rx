@@ -28,20 +28,19 @@
   "typings": "lib/index.d.ts",
   "homepage": "https://github.com/anaisbetts/spawn-rx",
   "dependencies": {
-    "debug": "^4.3.7",
-    "lru-cache": "^11.2.4",
-    "rxjs": "^7.8.1"
+    "debug": "^4.4.3",
+    "lru-cache": "^11.3.5",
+    "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.0",
-    "@types/debug": "^4.1.12",
-    "@types/node": "^22.0.0",
-    "@typescript/native-preview": "^7.0.0-dev.20251221.1",
-    "babel-register": "^6.23.0",
+    "@biomejs/biome": "^2.4.14",
+    "@types/debug": "^4.1.13",
+    "@types/node": "^25.6.0",
+    "@typescript/native-preview": "^7.0.0-dev.20260504.1",
+    "babel-register": "^6.26.0",
     "esdoc": "^1.1.0",
     "esdoc-es7-plugin": "0.0.3",
     "esdoc-plugin-async-to-sync": "^0.5.0",
-    "marked": "^0.5.0",
-    "uuid": "3.0.1"
+    "uuid": "14.0.0"
   }
 }

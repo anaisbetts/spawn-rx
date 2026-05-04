@@ -78,10 +78,11 @@ describe("The spawn method", () => {
   });
 
   it("should return split stderr in a inner tag when called with split", async () => {
-    // provide an invalid param to uuid so it complains on stderr
-    const rxSpawn: Observable<{ source: any; text: any }> = spawn("uuid", ["foo"], { split: true }) as any;
+    const rxSpawn: Observable<{ source: any; text: any }> = spawn("sh", ["-c", "echo err >&2; exit 1"], {
+      split: true,
+    }) as any;
     const result = await wrapSplitObservableInPromise(rxSpawn);
-    expect(result.stderr.length > 10).toBeTruthy();
+    expect(result.stderr.trim()).toBe("err");
     expect(result.stdout).toBe("");
     expect(result.error).toBeInstanceOf(Error);
   });
@@ -116,7 +117,7 @@ describe("The spawn method", () => {
 
   it("should croak if stdin is provided but stdio.stdin is disabled", async () => {
     const stdin = of("a");
-    const rxSpawn: Observable<{ source: any; text: any }> = spawn("marked", [], {
+    const rxSpawn: Observable<{ source: any; text: any }> = spawn("cat", [], {
       split: true,
       stdin: stdin,
       stdio: ["ignore", null, null],
@@ -127,11 +128,12 @@ describe("The spawn method", () => {
 
   it("should subscribe to provided stdin", async () => {
     const stdin = of("a");
-    const rxSpawn: Observable<{ source: any; text: any }> = spawn("marked", [], {
+    const rxSpawn: Observable<{ source: any; text: any }> = spawn("cat", [], {
       split: true,
       stdin: stdin,
     });
     const result = await wrapSplitObservableInPromise(rxSpawn);
-    expect(result.stdout.trim()).toBe("<p>a</p>");
+    expect(result.stdout).toBe("a");
+    expect(result.stderr).toBe("");
   });
 });

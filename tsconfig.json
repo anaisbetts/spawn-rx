@@ -10,12 +10,14 @@
     "noUnusedLocals": true,
     "noImplicitThis": true,
     "noUnusedParameters": true,
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "Node16",
+    "moduleResolution": "node16",
     "pretty": true,
-    "target": "es5",
+    "target": "es2015",
+    "rootDir": "src",
     "outDir": "lib",
-    "lib": ["dom", "es2015"]
+    "lib": ["dom", "es2015"],
+    "types": ["node"]
   },
   "formatCodeOptions": {
     "indentSize": 2,
